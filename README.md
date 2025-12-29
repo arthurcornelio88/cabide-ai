@@ -13,6 +13,7 @@ A high-fidelity fashion image generation pipeline designed for professional clot
 - **Language:** Python 3.11+
 - **Dependency Manager:** `uv`
 - **Linting:** `Ruff`
+- **Image Support:** PNG, JPG, JPEG, HEIC, HEIF (auto-converted)
 - **Infrastructure:** Docker, Google Cloud Run, GCS, Artifact Registry.
 - **CI/CD:** GitHub Actions.
 

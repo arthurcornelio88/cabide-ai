@@ -32,12 +32,62 @@ os.makedirs(_init_settings.output_dir, exist_ok=True)
 # Initialize Engine (Engine logic now handles GCS vs Local internally)
 engine = FashionEngine()
 
+# --- Helper Functions ---
+
+def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | None]:
+    """
+    Extract garment_number and garment_type from filename.
+
+    Expected format: <number>_<type>_<rest>.ext
+    Examples:
+        - 47_pantalon_20251229-195429.HEIC -> ("47", "pantalon")
+        - 42_saia_20251229.HEIC -> ("42", "saia")
+        - 100_vestidofesta_front_20251229.HEIC -> ("100", "vestidofesta")
+        - 12_front_20251229.HEIC -> ("12", None) - type missing (front/back are ignored)
+        - 33_back_20251229.HEIC -> ("33", None) - type missing
+
+    Returns:
+        tuple: (garment_number, garment_type) or (None, None) if extraction fails
+    """
+    import re
+
+    # Remove file extension
+    name_without_ext = os.path.splitext(filename)[0]
+
+    # Words to ignore (these are not garment types)
+    ignore_words = {'front', 'back', 'frente', 'costas'}
+
+    # Pattern: starts with digits, followed by underscore, then text (type), then underscore or end
+    # This handles: 47_pantalon_..., 100_vestidofesta_..., etc.
+    pattern = r'^(\d+)_([a-zA-Zàéèêç]+)(?:_|$)'
+    match = re.match(pattern, name_without_ext)
+
+    if match:
+        number = match.group(1)
+        garment_type = match.group(2).lower()
+
+        # Skip if it's a position indicator, not a garment type
+        if garment_type in ignore_words:
+            return (number, None)
+
+        return (number, garment_type)
+
+    # Fallback: try to extract just the number if format is different
+    number_match = re.match(r'^(\d+)', name_without_ext)
+    if number_match:
+        return (number_match.group(1), None)
+
+    return (None, None)
+
 # --- Endpoints ---
 
 @app.post("/generate")
 async def generate_model_photo(
     file: Annotated[UploadFile, File(description="Garment photo")],
     env: str = "street",
+    garment_number: str | None = None,
+    garment_type: str | None = None,
+    position: str | None = None,
     settings: Settings = Depends(get_settings)
 ):
     """
@@ -46,6 +96,8 @@ async def generate_model_photo(
     Args:
         file: Uploaded garment photo
         env: Environment setting (beach, forest, urban street, etc.)
+        garment_number: Garment number (extracted from filename if not provided)
+        garment_type: Garment type (extracted from filename if not provided)
         settings: Application settings
 
     Returns:
@@ -58,11 +110,24 @@ async def generate_model_photo(
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")
 
-    file_ext = os.path.splitext(file.filename)[1].lower()
-    if file_ext not in ['.png', '.jpg', '.jpeg']:
+    # Extract garment_number and garment_type from filename if not provided
+    if not garment_number or not garment_type:
+        extracted_number, extracted_type = _extract_metadata_from_filename(file.filename)
+        garment_number = garment_number or extracted_number
+        garment_type = garment_type or extracted_type
+
+    # Validate that we have both number and type
+    if not garment_number or not garment_type:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported file type: {file_ext}. Use PNG, JPG, or JPEG."
+            detail="garment_number and garment_type are required. Either provide them explicitly or use a filename with format: <number>_<type>_<rest>.ext (e.g., 42_pantalon_20251229.HEIC)"
+        )
+
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in ['.png', '.jpg', '.jpeg', '.heic', '.heif']:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {file_ext}. Use PNG, JPG, JPEG, HEIC, or HEIF."
         )
 
     job_id = str(uuid.uuid4())
@@ -73,11 +138,34 @@ async def generate_model_photo(
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+        # Convert HEIC to PNG if needed
+        if file_ext in ['.heic', '.heif']:
+            try:
+                from PIL import Image
+                from pillow_heif import register_heif_opener
+
+                register_heif_opener()
+                img = Image.open(temp_path)
+
+                # Convert to PNG for processing
+                png_path = os.path.join(settings.temp_upload_dir, f"{job_id}.png")
+                img.save(png_path, format='PNG')
+
+                # Remove original HEIC file and use PNG
+                os.remove(temp_path)
+                temp_path = png_path
+            except Exception as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to convert HEIC image: {str(e)}"
+                )
+
         # Validate file is a real image
         try:
             from PIL import Image
-            img = Image.open(temp_path)
-            img.verify()  # Verify it's a valid image
+            with Image.open(temp_path) as img:
+                img.verify()  # Verify it's a valid image
+            # Note: verify() invalidates the image, so we don't keep it open
         except Exception as e:
             raise HTTPException(
                 status_code=400,
@@ -88,7 +176,10 @@ async def generate_model_photo(
         result_path_or_url = engine.generate_lifestyle_photo(
             temp_path,
             environment=env,
-            activity="posing for a lifestyle catalog"
+            activity="posing for a lifestyle catalog",
+            garment_number=garment_number,
+            garment_type=garment_type,
+            position=position
         )
 
         # Response based on Storage Mode

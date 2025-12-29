@@ -33,7 +33,7 @@ COPY src/ ./src/
 COPY PROMPT_TEMPLATES.md .
 
 # Create necessary directories for the volumes
-RUN mkdir -p outputs temp/uploads
+RUN mkdir -p img/gen_images/output img/gen_images/input temp/uploads
 
 # Expose FastAPI port
 EXPOSE 8000

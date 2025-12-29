@@ -40,7 +40,10 @@ class CabideAPIClient:
         image_file: BinaryIO,
         filename: str,
         environment: str = "street",
-        activity: str = "posing for a lifestyle catalog"
+        activity: str = "posing for a lifestyle catalog",
+        garment_number: str = None,
+        garment_type: str = None,
+        position: str = None
     ) -> dict:
         """
         Generate lifestyle photo via backend API.
@@ -58,12 +61,20 @@ class CabideAPIClient:
             requests.RequestException: If request fails
         """
         files = {'file': (filename, image_file, 'image/png')}
-        params = {'env': environment}
+        data = {'env': environment}
+
+        # Add metadata if provided
+        if garment_number:
+            data['garment_number'] = garment_number
+        if garment_type:
+            data['garment_type'] = garment_type
+        if position:
+            data['position'] = position
 
         response = requests.post(
             f"{self.base_url}/generate",
             files=files,
-            params=params,
+            data=data,
             timeout=60  # Gemini can take time
         )
         response.raise_for_status()

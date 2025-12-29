@@ -37,7 +37,7 @@ htmlcov/
 .ruff_cache/
 
 # Application specific
-outputs/
+img/
 temp/
 tasks.md
 

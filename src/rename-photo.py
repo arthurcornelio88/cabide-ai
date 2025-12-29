@@ -50,7 +50,7 @@ def process_images(input_dir, output_dir):
 
 if __name__ == "__main__":
     # Configure tes dossiers ici
-    input_folder = "raw_images/input"
-    output_folder = "raw_images/output"
+    input_folder = "img/raw_images/input"
+    output_folder = "img/raw_images/output"
 
     process_images(input_folder, output_folder)

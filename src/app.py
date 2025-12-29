@@ -83,105 +83,177 @@ with st.expander("🎨 Scene Customization", expanded=True):
         selected_act_label = st.selectbox("Model Activity", list(activity_labels.keys()))
         act_value = activity_labels[selected_act_label]
 
+# --- Garment Metadata Section ---
+with st.expander("📋 Dados da Peça", expanded=True):
+    col_num, col_type, col_position = st.columns(3)
+    with col_num:
+        garment_number = st.text_input(
+            "Número da Peça *",
+            placeholder="Ex: 100",
+            help="Número único da peça para o catálogo"
+        )
+    with col_type:
+        garment_type = st.selectbox(
+            "Tipo da Peça *",
+            ["", "Vestido", "Vestido de Festa", "Calça", "Saia",
+             "Sapato", "Écharpe", "Bracelete", "Veste"],
+            help="Selecione o tipo de roupa"
+        )
+    with col_position:
+        position = st.selectbox(
+            "Posição (Opcional)",
+            ["Frente", "Costas", "Ambos"],
+            help="Útil para vestidos e peças com frente/costas diferentes. Se não enviar costas, usamos a frente."
+        )
+
 # --- File Upload Section ---
 # Multi-file upload for Front/Back support
+upload_help_text = {
+    "Frente": "Envie 1 ou mais fotos da frente",
+    "Costas": "Envie 1 ou mais fotos das costas",
+    "Ambos": "Envie 2 fotos: frente e costas (recomendado para vestidos)"
+}
+
+st.info(f"📸 {upload_help_text.get(position, 'Envie as fotos da peça')} • Se não tiver foto das costas, usamos a frente.")
+
 uploaded_files = st.file_uploader(
-    "Upload garment photos (Front & Back recommended for better fidelity)",
-    type=['png', 'jpg', 'jpeg'],
+    "Upload garment photos (1 ou 2 fotos)",
+    type=['png', 'jpg', 'jpeg', 'heic', 'heif'],
     accept_multiple_files=True
 )
 
 if st.button("✨ Generate Professional Photo", use_container_width=True):
     if uploaded_files:
-        with st.spinner("Banana Pro is generating your image..."):
-            try:
-                # Determine mode: API or Direct Engine
-                use_api = api_client is not None and settings.backend_url
+        # Validate metadata
+        if not garment_number or not garment_number.strip():
+            st.error("⚠️ Por favor, preencha o Número da Peça")
+        elif not garment_type:
+            st.error("⚠️ Por favor, selecione o Tipo da Peça")
+        else:
+            # Optional: Show info if user selected "Ambos" but only uploaded 1 photo
+            if position == "Ambos" and len(uploaded_files) == 1:
+                st.info("ℹ️ Você selecionou 'Ambos' mas enviou apenas 1 foto. Vamos usar a mesma foto para frente e costas.")
 
-                if use_api:
-                    # API MODE: Call backend
-                    # For now, use first file (multi-file upload needs backend update)
-                    uploaded_file = uploaded_files[0]
+            with st.spinner("Banana Pro is generating your image..."):
+                try:
+                    # Determine mode: API or Direct Engine
+                    use_api = api_client is not None and settings.backend_url
 
-                    result = api_client.generate_photo(
-                        image_file=io.BytesIO(uploaded_file.getbuffer()),
-                        filename=uploaded_file.name,
-                        environment=env_value,
-                        activity=act_value
-                    )
+                    if use_api:
+                        # API MODE: Call backend
+                        # For now, use first file (multi-file upload needs backend update)
+                        uploaded_file = uploaded_files[0]
 
-                    if 'url' in result:
-                        # Production mode: Fetch from URL
-                        response = requests.get(result['url'])
-                        image_bytes = response.content
+                        # Create BytesIO and ensure it's at position 0
+                        image_buffer = io.BytesIO(uploaded_file.getbuffer())
+                        image_buffer.seek(0)
+
+                        result = api_client.generate_photo(
+                            image_file=image_buffer,
+                            filename=uploaded_file.name,
+                            environment=env_value,
+                            activity=act_value,
+                            garment_number=garment_number.strip(),
+                            garment_type=garment_type,
+                            position=position
+                        )
+
+                        if 'url' in result:
+                            # Production mode: Fetch from URL
+                            response = requests.get(result['url'])
+                            image_bytes = response.content
+                        else:
+                            # Local mode: Use returned bytes
+                            image_bytes = result['image_bytes']
                     else:
-                        # Local mode: Use returned bytes
-                        image_bytes = result['image_bytes']
-                else:
-                    # DIRECT ENGINE MODE (current behavior)
-                    # 1. Handle multiple temp files for the engine
-                    temp_paths = []
-                    for idx, uploaded_file in enumerate(uploaded_files):
-                        temp_name = f"temp_{idx}_{uploaded_file.name}"
-                        with open(temp_name, "wb") as f:
-                            f.write(uploaded_file.getbuffer())
-                        temp_paths.append(temp_name)
+                        # DIRECT ENGINE MODE (current behavior)
+                        # 1. Handle multiple temp files for the engine
+                        temp_paths = []
+                        for idx, uploaded_file in enumerate(uploaded_files):
+                            temp_name = f"temp_{idx}_{uploaded_file.name}"
+                            with open(temp_name, "wb") as f:
+                                f.write(uploaded_file.getbuffer())
 
-                    # 2. Call Engine (Handles single/list paths and front/back logic)
-                    result = engine.generate_lifestyle_photo(
-                        garment_path=temp_paths,
-                        environment=env_value,
-                        activity=act_value
-                    )
+                            # Convert HEIC to PNG if needed
+                            if uploaded_file.name.lower().endswith(('.heic', '.heif')):
+                                try:
+                                    from PIL import Image
+                                    from pillow_heif import register_heif_opener
 
-                    # 3. Handle result data for Download/Drive
-                    if isinstance(result, list):
-                        result = result[0]  # Take first if multiple envs
+                                    register_heif_opener()
+                                    img = Image.open(temp_name)
 
-                    if result.startswith("http"):
-                        # Production Mode: Fetch from GCS
-                        response = requests.get(result)
-                        image_bytes = response.content
-                    else:
-                        # Local Mode: Read from disk
-                        with open(result, "rb") as f:
-                            image_bytes = f.read()
+                                    # Convert to PNG
+                                    png_name = f"temp_{idx}_converted.png"
+                                    img.save(png_name, format='PNG')
 
-                    # Cleanup temp files
-                    for p in temp_paths:
-                        if os.path.exists(p):
-                            os.remove(p)
+                                    # Remove HEIC and use PNG
+                                    os.remove(temp_name)
+                                    temp_name = png_name
+                                except Exception as e:
+                                    st.error(f"Failed to convert HEIC image: {e}")
+                                    raise
 
-                # 4. Display Results
-                st.success("Generation Complete!")
-                st.image(image_bytes, caption=f"{selected_env_label} | {selected_act_label}")
+                            temp_paths.append(temp_name)
 
-                # --- Actions (Download & Drive) ---
-                col_down, col_drive = st.columns(2)
+                        # 2. Call Engine (Handles single/list paths and front/back logic)
+                        result = engine.generate_lifestyle_photo(
+                            garment_path=temp_paths,
+                            environment=env_value,
+                            activity=act_value,
+                            garment_number=garment_number.strip(),
+                            garment_type=garment_type,
+                            position=position
+                        )
 
-                with col_down:
-                    st.download_button(
-                        label="💾 Download Image",
-                        data=image_bytes,
-                        file_name=f"catalog_{uuid.uuid4().hex[:5]}.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
+                        # 3. Handle result data for Download/Drive
+                        if isinstance(result, list):
+                            result = result[0]  # Take first if multiple envs
 
-                with col_drive:
-                    if drive_manager:
-                        if st.button("📤 Save to Store Drive", use_container_width=True):
-                            with st.spinner("Uploading..."):
-                                drive_url = drive_manager.upload_file(
-                                    image_bytes,
-                                    f"catalog_{uuid.uuid4().hex[:5]}.png"
-                                )
-                                st.balloons()
-                                st.link_button("View on Google Drive", drive_url, use_container_width=True)
-                    else:
-                        st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
+                        if result.startswith("http"):
+                            # Production Mode: Fetch from GCS
+                            response = requests.get(result)
+                            image_bytes = response.content
+                        else:
+                            # Local Mode: Read from disk
+                            with open(result, "rb") as f:
+                                image_bytes = f.read()
 
-            except Exception as e:
-                st.error(f"Engine Error: {e}")
+                        # Cleanup temp files
+                        for p in temp_paths:
+                            if os.path.exists(p):
+                                os.remove(p)
+
+                    # 4. Display Results
+                    st.success("Generation Complete!")
+                    st.image(image_bytes, caption=f"{selected_env_label} | {selected_act_label}")
+
+                    # --- Actions (Download & Drive) ---
+                    col_down, col_drive = st.columns(2)
+
+                    with col_down:
+                        st.download_button(
+                            label="💾 Download Image",
+                            data=image_bytes,
+                            file_name=f"catalog_{uuid.uuid4().hex[:5]}.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+
+                    with col_drive:
+                        if drive_manager:
+                            if st.button("📤 Save to Store Drive", use_container_width=True):
+                                with st.spinner("Uploading..."):
+                                    drive_url = drive_manager.upload_file(
+                                        image_bytes,
+                                        f"catalog_{uuid.uuid4().hex[:5]}.png"
+                                    )
+                                    st.balloons()
+                                    st.link_button("View on Google Drive", drive_url, use_container_width=True)
+                        else:
+                            st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
+
+                except Exception as e:
+                    st.error(f"Engine Error: {e}")
     else:
         st.error("Please upload at least one garment photo.")

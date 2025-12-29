@@ -26,12 +26,12 @@ class Settings(BaseSettings):
     gcp_service_account_json: str = Field(default="{}", validation_alias="GCP_SERVICE_ACCOUNT_JSON")
 
     # Paths
-    output_dir: Path = Field(default=Path("outputs"))
+    output_dir: Path = Field(default=Path("img/gen_images/output"))
     temp_upload_dir: Path = Field(default=Path("temp/uploads"))
     templates_file: Path = Field(default_factory=lambda: Path(__file__).parent.parent / "PROMPT_TEMPLATES.md")
 
     # Batch Processing Defaults
-    input_dir: Path = Field(default=Path("inputs/clothes"))
+    input_dir: Path = Field(default=Path("img/gen_images/input"))
 
     # Global random pools for batch processing
     environments: List[str] = Field(default=[
