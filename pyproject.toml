@@ -1,0 +1,29 @@
+[project]
+name = "cabide-ai"
+version = "0.1.0"
+description = "Scalable AI fashion pipeline for Cabide da Ieie"
+dependencies = [
+    "google-generativeai>=0.8.0",
+    "python-dotenv>=1.0.1",
+    "pillow>=10.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+    "streamlit>=1.31.0",
+    "pydantic-settings>=2.1.0",
+    "python-multipart>=0.0.21",
+    "google-api-python-client>=2.187.0",
+    "google-auth-httplib2>=0.3.0",
+    "google-auth-oauthlib>=1.2.3",
+]
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.3.0",
+    "pre-commit>=3.6.0",
+]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]

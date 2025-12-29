@@ -1,0 +1,41 @@
+# Use a slim Python image for a smaller footprint
+FROM python:3.11-slim as builder
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for image processing and UV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only dependency files first to leverage Docker cache
+COPY pyproject.toml .
+
+# Install dependencies using UV
+RUN /root/.cargo/bin/uv pip install --system --requirement pyproject.toml
+
+# Final Stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application source code
+COPY src/ ./src/
+COPY PROMPT_TEMPLATES.md .
+
+# Create necessary directories for the volumes
+RUN mkdir -p outputs temp/uploads
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Run the API using uvicorn
+CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]

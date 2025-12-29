@@ -1,0 +1,82 @@
+# 👗 Cabide AI: Professional Fashion Catalog Generator
+
+A high-fidelity fashion image generation pipeline designed for professional clothing stores. This project uses **Gemini 3 Pro Image (Nano Banana Pro)** to transform simple product photos into professional editorial content.
+
+## 🌍 Hybrid Architecture (France 🇫🇷 / Brazil 🇧🇷)
+- **Engine:** Python-based multimodal processing.
+- **Backend:** FastAPI with Pydantic V2 validation.
+- **Frontend:** Streamlit optimized for mobile/desktop usage in Brazil.
+- **Storage:** Hybrid logic (Local for Dev / GCS in `southamerica-east1` for Prod).
+- **Drive Integration:** Automatic backup to Google Drive via Service Account.
+
+## 🛠 Tech Stack
+- **Language:** Python 3.11+
+- **Dependency Manager:** `uv`
+- **Linting:** `Ruff`
+- **Infrastructure:** Docker, Google Cloud Run, GCS, Artifact Registry.
+- **CI/CD:** GitHub Actions.
+
+## 🚀 Quick Start (Local Dev)
+
+1. **Install Dependencies:**
+```bash
+uv sync
+
+```
+
+2. **Configure Environment:**
+Create a `.env` file:
+```env
+GEMINI_API_KEY=your_key
+STORAGE_MODE=local
+GCS_BUCKET_NAME=<your-bucket-name>
+
+```
+
+3. **Run Batch Processor:**
+```bash
+python src/main.py --env forest
+
+```
+
+
+4. **Run UI:**
+```bash
+streamlit run src/app.py
+
+```
+
+## 📦 Deployment to Brazil
+
+The deployment is automated via GitHub Actions.
+
+1. **GitHub Secrets Required:**
+* `GCP_PROJECT_ID`: Your Google Cloud Project ID.
+* `GCP_SA_KEY`: JSON Key of a Service Account with Storage/Run/Registry permissions.
+* `GEMINI_API_KEY`: Your Google AI Studio API Key (Paid Tier).
+* `GCP_SERVICE_ACCOUNT_JSON`: Minified JSON of the Service Account (for Drive access).
+
+
+2. **Push to Main:**
+```bash
+git add .
+git commit -m "Deploying to Brazil region"
+git push origin main
+
+```
+
+## 📂 Project Structure
+
+* `src/engine.py`: Core AI logic & multimodal garment handling.
+* `src/api.py`: FastAPI implementation.
+* `src/app.py`: Streamlit UI for the end-user.
+* `src/drive_service.py`: Google Drive upload management.
+* `PROMPT_TEMPLATES.md`: Source of truth for AI instructions.
+
+## 📝 TODOs & Future Improvements
+
+* [x] Complexify parameters for list of garments (front/back).
+* [x] Implement "vestidodefesta" specific environment logic.
+* [x] Integrate Google Drive Service Account upload.
+* [ ] Implement OAuth2 for multi-user Drive access.
+* [ ] Add Video generation support via Veo 3.1.

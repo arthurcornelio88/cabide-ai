@@ -1,0 +1,64 @@
+name: Fashion Pipeline CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  # Job 1: Linting and Formatting Check
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Ruff Check
+        # Ensures code follows the English-first standards and Pydantic practices established
+        run: uv run ruff check .
+
+      - name: Run Ruff Format
+        # Ensures consistent styling across the engine, api, and main scripts
+        run: uv run ruff format . --check
+
+  # Job 2: Docker Build Verification
+  docker-smoke-test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        # Optimized for multi-platform builds if you decide to scale to ARM (e.g., AWS Graviton)
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Image
+        # Verifies the FastAPI + Nano Banana Pro environment
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.backend
+          push: false
+          tags: cabide-ai-api:latest
+
+      - name: Build Frontend Image
+        # Verifies the Streamlit UI configuration
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          push: false
+          tags: cabide-ai-ui:latest

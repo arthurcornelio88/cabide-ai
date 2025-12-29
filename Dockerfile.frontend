@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install UV for fast dependency management
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files
+COPY pyproject.toml .
+
+# Install dependencies
+RUN /root/.cargo/bin/uv pip install --system --requirement pyproject.toml
+
+# Copy frontend source
+COPY src/app.py ./src/
+COPY src/engine.py ./src/
+
+# Streamlit specific configuration
+ENV STREAMLIT_SERVER_PORT=8501
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+# Expose Streamlit port
+EXPOSE 8501
+
+# Healthcheck to ensure UI is up
+HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+
+# Run Streamlit
+CMD ["streamlit", "run", "src/app.py"]
