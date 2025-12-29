@@ -20,8 +20,11 @@ A high-fidelity fashion image generation pipeline designed for professional clot
 
 1. **Install Dependencies:**
 ```bash
-uv sync
+# Install package in editable mode (required for imports to work)
+pip install -e .
 
+# Or using uv
+uv pip install -e .
 ```
 
 2. **Configure Environment:**
@@ -33,18 +36,22 @@ GCS_BUCKET_NAME=<your-bucket-name>
 
 ```
 
-3. **Run Batch Processor:**
+3. **Run Tests:**
 ```bash
-python src/main.py --env forest
-
+pytest tests/ -v --cov=src
 ```
 
+4. **Run Batch Processor:**
+```bash
+python -m src.main --env forest
+```
 
-4. **Run UI:**
+5. **Run UI:**
 ```bash
 streamlit run src/app.py
-
 ```
+
+> **Note:** See [SETUP.md](SETUP.md) for detailed setup instructions and troubleshooting.
 
 ## 📦 Deployment to Brazil
 
@@ -54,7 +61,8 @@ The deployment is automated via GitHub Actions.
 * `GCP_PROJECT_ID`: Your Google Cloud Project ID.
 * `GCP_SA_KEY`: JSON Key of a Service Account with Storage/Run/Registry permissions.
 * `GEMINI_API_KEY`: Your Google AI Studio API Key (Paid Tier).
-* `GCP_SERVICE_ACCOUNT_JSON`: Minified JSON of the Service Account (for Drive access).
+* `GCP_SERVICE_ACCOUNT_JSON`: Minified JSON of the Service Account (for Drive/GCS access in production).
+* `GDRIVE_FOLDER_ID`: Google Drive folder ID for automatic backup uploads (optional but recommended).
 
 
 2. **Push to Main:**
@@ -67,10 +75,12 @@ git push origin main
 
 ## 📂 Project Structure
 
+* `src/config.py`: Unified configuration management with Pydantic v2 settings.
 * `src/engine.py`: Core AI logic & multimodal garment handling.
 * `src/api.py`: FastAPI implementation.
-* `src/app.py`: Streamlit UI for the end-user.
-* `src/drive_service.py`: Google Drive upload management.
+* `src/api_client.py`: HTTP client for frontend-to-backend communication.
+* `src/app.py`: Streamlit UI for the end-user (supports both direct engine and API modes).
+* `src/driver_service.py`: Google Drive upload management.
 * `PROMPT_TEMPLATES.md`: Source of truth for AI instructions.
 
 ## 📝 TODOs & Future Improvements

@@ -12,11 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only dependency files first to leverage Docker cache
+# Copy dependency files and source structure for editable install
 COPY pyproject.toml .
+COPY src/__init__.py ./src/
 
-# Install dependencies using UV
-RUN /root/.cargo/bin/uv pip install --system --requirement pyproject.toml
+# Install dependencies and package
+RUN /root/.local/bin/uv pip install --system -e .
 
 # Final Stage
 FROM python:3.11-slim

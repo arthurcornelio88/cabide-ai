@@ -65,7 +65,10 @@ jobs:
           region: ${{ env.REGION }}
           env_vars: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            STORAGE_MODE=prod
             GCS_BUCKET_NAME=${{ env.GCS_BUCKET }}
+            GCP_SERVICE_ACCOUNT_JSON=${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+            GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}
 
       # 7. Deploy Frontend to Cloud Run (São Paulo)
       - name: Deploy Frontend to Cloud Run
@@ -76,5 +79,9 @@ jobs:
           region: ${{ env.REGION }}
           flags: '--allow-unauthenticated'
           env_vars: |
-            # Dynamically use the URL from the backend deployment
             BACKEND_URL=${{ steps.deploy-backend.outputs.url }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            STORAGE_MODE=prod
+            GCS_BUCKET_NAME=${{ env.GCS_BUCKET }}
+            GCP_SERVICE_ACCOUNT_JSON=${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+            GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}

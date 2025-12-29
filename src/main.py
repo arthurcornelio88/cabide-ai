@@ -1,24 +1,14 @@
 import argparse
 import logging
-from pathlib import Path
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from engine import FashionEngine
-
-# --- Batch Settings ---
-class BatchSettings(BaseSettings):
-    input_dir: Path = Field(default=Path("inputs/clothes"))
-    output_dir: Path = Field(default=Path("outputs"))
-    storage_mode: str = "local" # Default to local for CLI usage
-
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+from src.engine import FashionEngine
+from src.config import get_settings, Settings
 
 # --- Logging ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("CabideBatchCLI")
 
 class BatchProcessor:
-    def __init__(self, settings: BatchSettings):
+    def __init__(self, settings: Settings):
         self.settings = settings
         self.engine = FashionEngine()
         if self.settings.storage_mode == "local":
@@ -52,6 +42,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load from .env or ENV VARS
-    config = BatchSettings()
+    config = get_settings()
     processor = BatchProcessor(config)
     processor.process_all(environment=args.env)

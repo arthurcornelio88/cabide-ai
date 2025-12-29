@@ -1,10 +1,13 @@
 import os
+import io
 import uuid
 import json
 import requests
 import streamlit as st
-from engine import FashionEngine, EngineSettings
-from drive_service import DriveService
+from src.engine import FashionEngine
+from src.driver_service import DriveService
+from src.api_client import CabideAPIClient
+from src.config import get_settings, Settings
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -19,7 +22,7 @@ def get_engine():
     return FashionEngine()
 
 @st.cache_resource
-def get_drive_manager(_settings: EngineSettings):
+def get_drive_manager(_settings: Settings):
     """
     Initializes DriveService if in prod mode and credentials exist.
     The underscore prefix tells Streamlit not to hash this object.
@@ -33,9 +36,20 @@ def get_drive_manager(_settings: EngineSettings):
     return None
 
 # Load Resources
-settings = EngineSettings()
+settings = get_settings()
 engine = get_engine()
 drive_manager = get_drive_manager(settings)
+
+# Initialize API client if backend URL is configured
+api_client = None
+if settings.backend_url:
+    try:
+        api_client = CabideAPIClient(settings.backend_url)
+        api_status = api_client.health_check()
+        st.sidebar.success(f"✅ API Connected: v{api_status.get('version', 'unknown')}")
+    except Exception as e:
+        st.sidebar.warning(f"⚠️ API unavailable: {e}\nUsing direct engine mode")
+        api_client = None
 
 # --- UI Header ---
 st.title("👗 Cabide AI")
@@ -58,7 +72,7 @@ with st.expander("🎨 Scene Customization", expanded=True):
         env_value = env_labels[selected_env_label]
 
     with col2:
-        # Activity selection - (TODO Solved)
+        # Activity selection
         activity_labels = {
             "Caminhando (Walking)": "walking",
             "Lendo (Reading)": "reading",
@@ -81,32 +95,62 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
     if uploaded_files:
         with st.spinner("Banana Pro is generating your image..."):
             try:
-                # 1. Handle multiple temp files for the engine
-                temp_paths = []
-                for idx, uploaded_file in enumerate(uploaded_files):
-                    temp_name = f"temp_{idx}_{uploaded_file.name}"
-                    with open(temp_name, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    temp_paths.append(temp_name)
+                # Determine mode: API or Direct Engine
+                use_api = api_client is not None and settings.backend_url
 
-                # 2. Call Engine (Handles single/list paths and front/back logic)
-                result = engine.generate_lifestyle_photo(
-                    garment_path=temp_paths,
-                    environment=env_value,
-                    activity=act_value
-                )
+                if use_api:
+                    # API MODE: Call backend
+                    # For now, use first file (multi-file upload needs backend update)
+                    uploaded_file = uploaded_files[0]
 
-                # 3. Handle result data for Download/Drive
-                if isinstance(result, list): result = result[0] # Take first if multiple envs
+                    result = api_client.generate_photo(
+                        image_file=io.BytesIO(uploaded_file.getbuffer()),
+                        filename=uploaded_file.name,
+                        environment=env_value,
+                        activity=act_value
+                    )
 
-                if result.startswith("http"):
-                    # Production Mode: Fetch from GCS
-                    response = requests.get(result)
-                    image_bytes = response.content
+                    if 'url' in result:
+                        # Production mode: Fetch from URL
+                        response = requests.get(result['url'])
+                        image_bytes = response.content
+                    else:
+                        # Local mode: Use returned bytes
+                        image_bytes = result['image_bytes']
                 else:
-                    # Local Mode: Read from disk
-                    with open(result, "rb") as f:
-                        image_bytes = f.read()
+                    # DIRECT ENGINE MODE (current behavior)
+                    # 1. Handle multiple temp files for the engine
+                    temp_paths = []
+                    for idx, uploaded_file in enumerate(uploaded_files):
+                        temp_name = f"temp_{idx}_{uploaded_file.name}"
+                        with open(temp_name, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        temp_paths.append(temp_name)
+
+                    # 2. Call Engine (Handles single/list paths and front/back logic)
+                    result = engine.generate_lifestyle_photo(
+                        garment_path=temp_paths,
+                        environment=env_value,
+                        activity=act_value
+                    )
+
+                    # 3. Handle result data for Download/Drive
+                    if isinstance(result, list):
+                        result = result[0]  # Take first if multiple envs
+
+                    if result.startswith("http"):
+                        # Production Mode: Fetch from GCS
+                        response = requests.get(result)
+                        image_bytes = response.content
+                    else:
+                        # Local Mode: Read from disk
+                        with open(result, "rb") as f:
+                            image_bytes = f.read()
+
+                    # Cleanup temp files
+                    for p in temp_paths:
+                        if os.path.exists(p):
+                            os.remove(p)
 
                 # 4. Display Results
                 st.success("Generation Complete!")
@@ -136,10 +180,6 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                                 st.link_button("View on Google Drive", drive_url, use_container_width=True)
                     else:
                         st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
-
-                # Cleanup temp inputs
-                for p in temp_paths:
-                    if os.path.exists(p): os.remove(p)
 
             except Exception as e:
                 st.error(f"Engine Error: {e}")

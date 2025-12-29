@@ -1,0 +1,70 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+
+# Documentation
+README.md
+SETUP.md
+UV_COMMANDS.md
+*.md
+!PROMPT_TEMPLATES.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+tests/
+pytest.ini
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# UV and package management
+uv.lock
+
+# Application runtime
+outputs/
+temp/
+*.log
+
+# Environment files (secrets should not be in image)
+.env
+.env.*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.dist-info/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore

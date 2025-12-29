@@ -10,28 +10,14 @@ from typing import Union, List
 from PIL import Image
 from google.cloud import storage
 import google.generativeai as genai
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from src.config import get_settings, Settings
 
 logger = logging.getLogger("CabideEngine")
 
-class EngineSettings(BaseSettings):
-    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
-    storage_mode: str = "local"
-    gdrive_folder_id: str = "your_shared_folder_id_here"
-    gcp_service_account_json: str = os.getenv("GCP_SERVICE_ACCOUNT_JSON", "{}")
-    gcs_bucket_name: str = "cabide-catalog-br"
-    output_dir: Path = Path("outputs")
-    templates_file: Path = Path("PROMPT_TEMPLATES.md")
-
-    # Global random pools for batch processing
-    environments: List[str] = ["forest", "park", "beach", "urban street", "luxury hotel"]
-    activities: List[str] = ["walking", "checking phone", "holding a coffee", "smiling at the camera"]
-
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
 class FashionEngine:
-    def __init__(self):
-        self.settings = EngineSettings()
+    def __init__(self, settings: Settings = None):
+        self.settings = settings or get_settings()
         genai.configure(api_key=self.settings.gemini_api_key)
         self.model = genai.GenerativeModel('gemini-3-pro-image-preview')
 
@@ -64,7 +50,6 @@ class FashionEngine:
             pil_image.save(local_path)
             return str(local_path.absolute())
 
-    # TODO: complexify parameters. garment_path could be a list of garments path.
     def generate_lifestyle_photo(
         self,
         garment_path: Union[str, List[str]],
@@ -87,15 +72,32 @@ class FashionEngine:
             final_env = "a gala ballroom"
             final_act = "holding a champagne glass"
 
-        # TODO: needs to load "PROMPT_TEMPLATES.md" and parse it
         raw_template = self._load_template(ref_filename)
         formatted_prompt = raw_template.replace("{{environment}}", final_env).replace("{{activity}}", final_act)
 
         # Multimodal call
         content_parts = [formatted_prompt] + garment_images
-        response = self.model.generate_content(content_parts)
+
+        try:
+            response = self.model.generate_content(content_parts)
+
+            # Validate response
+            if not response.candidates:
+                raise ValueError("Gemini returned no candidates. Response may have been blocked.")
+
+            if not hasattr(response.candidates[0], 'image') or response.candidates[0].image is None:
+                # Log the full response for debugging
+                logger.error(f"Gemini response missing image: {response}")
+                raise ValueError(
+                    "Gemini did not return an image. This may be due to safety filters "
+                    "or content policy violations."
+                )
+
+            generated_pil = response.candidates[0].image
+
+        except Exception as e:
+            logger.error(f"Image generation failed: {e}")
+            raise RuntimeError(f"Failed to generate image: {str(e)}") from e
 
         output_filename = f"cabide_{uuid.uuid4().hex[:8]}.png"
-        generated_pil = response.candidates[0].image
-
         return self._save_image(generated_pil, output_filename)

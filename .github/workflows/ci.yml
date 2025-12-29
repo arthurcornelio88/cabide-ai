@@ -7,8 +7,41 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  # Job 1: Linting and Formatting Check
+  # Job 1: Run Tests
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install Dependencies
+        run: |
+          ~/.cargo/bin/uv pip install --system -e .
+          ~/.cargo/bin/uv pip install --system pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run Tests
+        env:
+          GEMINI_API_KEY: test_key_for_ci
+          STORAGE_MODE: local
+        run: pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # Job 2: Linting and Formatting Check
   lint:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -33,9 +66,9 @@ jobs:
         # Ensures consistent styling across the engine, api, and main scripts
         run: uv run ruff format . --check
 
-  # Job 2: Docker Build Verification
+  # Job 3: Docker Build Verification
   docker-smoke-test:
-    needs: lint
+    needs: [test, lint]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
