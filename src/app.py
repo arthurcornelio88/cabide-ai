@@ -232,10 +232,15 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                     col_down, col_drive = st.columns(2)
 
                     with col_down:
+                        # Generate filename with metadata
+                        from src.engine import TYPE_NORMALIZATION
+                        normalized_type = TYPE_NORMALIZATION.get(garment_type.lower(), garment_type.lower())
+                        download_filename = f"cabide_{garment_number.strip()}_{normalized_type}.png"
+
                         st.download_button(
                             label="💾 Download Image",
                             data=image_bytes,
-                            file_name=f"catalog_{uuid.uuid4().hex[:5]}.png",
+                            file_name=download_filename,
                             mime="image/png",
                             use_container_width=True
                         )
@@ -246,7 +251,7 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                                 with st.spinner("Uploading..."):
                                     drive_url = drive_manager.upload_file(
                                         image_bytes,
-                                        f"catalog_{uuid.uuid4().hex[:5]}.png"
+                                        download_filename  # Use same filename as download
                                     )
                                     st.balloons()
                                     st.link_button("View on Google Drive", drive_url, use_container_width=True)
