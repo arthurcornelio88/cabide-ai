@@ -66,7 +66,10 @@ with st.expander("🎨 Scene Customization", expanded=True):
             "Floresta (Forest)": "forest",
             "Cidade (Urban Street)": "urban street",
             "Parque (Park)": "park",
-            "Festa (Party)": "luxury party ballroom"
+            "Festa (Party)": "luxury party ballroom",
+            "Escritório (Office)": "office",
+            "Congresso (Congress Hall)": "congress hall",
+            "Consultório (Medical Office)": "medical office"
         }
         selected_env_label = st.selectbox("Select Environment", list(env_labels.keys()))
         env_value = env_labels[selected_env_label]
@@ -78,7 +81,9 @@ with st.expander("🎨 Scene Customization", expanded=True):
             "Lendo (Reading)": "reading",
             "Tomando Café (Coffee)": "holding a coffee",
             "Posando (Posing)": "posing elegantly",
-            "No Celular (On Phone)": "checking phone"
+            "No Celular (On Phone)": "checking phone",
+            "Fazendo Apresentação (Presenting)": "giving a presentation",
+            "Atendendo Cliente (Attending Client)": "attending to a client"
         }
         selected_act_label = st.selectbox("Model Activity", list(activity_labels.keys()))
         act_value = activity_labels[selected_act_label]
@@ -95,7 +100,7 @@ with st.expander("📋 Dados da Peça", expanded=True):
     with col_type:
         garment_type = st.selectbox(
             "Tipo da Peça *",
-            ["", "Vestido", "Vestido de Festa", "Calça", "Saia",
+            ["", "Vestido", "Vestido de Festa", "Calça", "Camisa", "Saia",
              "Sapato", "Écharpe", "Bracelete", "Veste"],
             help="Selecione o tipo de roupa"
         )

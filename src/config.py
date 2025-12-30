@@ -35,10 +35,12 @@ class Settings(BaseSettings):
 
     # Global random pools for batch processing
     environments: List[str] = Field(default=[
-        "forest", "park", "beach", "urban street", "luxury hotel"
+        "forest", "park", "beach", "urban street", "luxury hotel",
+        "office", "congress hall", "medical office"
     ])
     activities: List[str] = Field(default=[
-        "walking", "checking phone", "holding a coffee", "smiling at the camera"
+        "walking", "checking phone", "holding a coffee", "smiling at the camera",
+        "giving a presentation", "attending to a client"
     ])
 
     # API Configuration

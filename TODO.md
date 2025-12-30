@@ -4,7 +4,7 @@
 
 # [x] 3 Personagens estoa saindo muito de lado ou de costas, corrigir
 
-# 4 Acrescentar
+# [x] 4 Acrescentar
   - tipo de roupa :camisa, conjunto (quando for calca blusa)
   - tipo de ambiente : escritório, congresso, consultório
   - situações : fazendo apresentação, atendendo cliente

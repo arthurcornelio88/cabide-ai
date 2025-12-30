@@ -35,6 +35,7 @@ TYPE_NORMALIZATION = {
     "saia": "saia",
     "calça": "calca",
     "calca": "calca",
+    "camisa": "camisa",
     "sapato": "sapato",
     "chaussure": "sapato"
 }
