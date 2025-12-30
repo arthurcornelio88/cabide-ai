@@ -64,3 +64,21 @@ Photography style: Cinematic, shot on a 35mm prime lens, high dynamic range.
 The model MUST be facing forward - either DIRECTLY FROM THE FRONT or at a 3/4 angle (showing front and one side). FORBIDDEN: back view, full side profile, turning away from camera. The complete conjunto must be clearly visible from the front.
 
 CRITICAL: Each garment piece shown in the separate reference images must be EXACTLY reproduced with 100% color, texture, and design fidelity. The conjunto must look natural and professionally coordinated.
+
+## Template: Background Replacement
+Generate a professional lifestyle photograph by seamlessly changing the background environment while preserving the model and garment exactly as shown.
+
+**Garment Type**: {{garment_type}}
+
+CRITICAL INSTRUCTIONS FOR BACKGROUND REPLACEMENT:
+- The reference image shows a model already wearing the garment
+- You MUST preserve the model's appearance, pose, and the garment EXACTLY as shown in the reference image
+- ONLY change the background environment to {{environment}}
+- Ensure the lighting and atmosphere match the new environment (e.g., dappled sunlight for forests, golden hour for beaches)
+- The model should appear naturally integrated into the new setting
+- Maintain the original composition and framing as much as possible
+- Add contextual activity if appropriate: {{activity}}
+
+Photography style: Natural, cinematic, shot on a 35mm prime lens, high dynamic range, shallow depth of field (f/1.8).
+
+CRITICAL: The model's pose, the garment's appearance (color, texture, fit, draping), and the overall composition must remain EXACTLY the same as the reference image. Only the background environment should change.

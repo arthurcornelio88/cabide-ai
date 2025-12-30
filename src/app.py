@@ -101,15 +101,19 @@ with st.expander("📋 Dados da Peça", expanded=True):
         garment_type = st.selectbox(
             "Tipo da Peça *",
             ["", "Vestido", "Vestido de Festa", "Calça", "Camisa", "Saia",
-             "Sapato", "Écharpe", "Bracelete", "Veste", "Conjunto"],
-            help="Selecione o tipo de roupa"
+             "Sapato", "Écharpe", "Bracelete", "Veste", "Conjunto", "Vestido com Modelo"],
+            help="Selecione o tipo de roupa. 'Vestido com Modelo' = trocar apenas o fundo"
         )
     with col_position:
-        position = st.selectbox(
-            "Posição (Opcional)",
-            ["Frente", "Costas", "Ambos"],
-            help="Útil para vestidos e peças com frente/costas diferentes. Se não enviar costas, usamos a frente."
-        )
+        if garment_type == "Vestido com Modelo":
+            position = "Frente"  # Default, not used for background replacement
+            st.text_input("Posição", value="N/A", disabled=True, help="Não aplicável para troca de fundo")
+        else:
+            position = st.selectbox(
+                "Posição (Opcional)",
+                ["Frente", "Costas", "Ambos"],
+                help="Útil para vestidos e peças com frente/costas diferentes. Se não enviar costas, usamos a frente."
+            )
 
 # --- Conjunto Composition (Conditional) ---
 piece1_type = None
@@ -195,6 +199,8 @@ if garment_type == "Conjunto":
     num_pieces = 2 if not piece3_type else 3
     st.info(f"📸 Envie {num_pieces} fotos separadas na ordem: 1) {piece1_type or 'Peça Superior'}, 2) {piece2_type or 'Peça Inferior'}" +
             (f", 3) {piece3_type}" if piece3_type else ""))
+elif garment_type == "Vestido com Modelo":
+    st.info("📸 Envie 1 foto do vestido já vestido na modelo. O sistema irá trocar apenas o fundo/ambiente.")
 else:
     upload_help_text = {
         "Frente": "Envie 1 ou mais fotos da frente",

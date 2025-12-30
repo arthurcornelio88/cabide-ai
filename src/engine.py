@@ -32,6 +32,7 @@ TYPE_NORMALIZATION = {
     "vestido de festa": "vestidodefesta",
     "vestidofesta": "vestidodefesta",
     "vestido": "vestido",
+    "vestido com modelo": "vestidocommodelo",
     "saia": "saia",
     "calça": "calca",
     "calca": "calca",
@@ -70,6 +71,8 @@ class FashionEngine:
         template_name = "Virtual Model Quotidien"
         if filename == "conjunto":
             template_name = "Virtual Model Conjunto"
+        elif filename == "background_replacement":
+            template_name = "Background Replacement"
         elif "vestidodefesta" in filename.lower():
             template_name = "Virtual Model Party"
 
@@ -136,6 +139,8 @@ class FashionEngine:
         # Load appropriate template
         if garment_type and garment_type.lower() == "conjunto":
             raw_template = self._load_template("conjunto")
+        elif garment_type and garment_type.lower() == "vestido com modelo":
+            raw_template = self._load_template("background_replacement")
         else:
             raw_template = self._load_template(ref_filename)
 

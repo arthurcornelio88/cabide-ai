@@ -1,6 +1,6 @@
 # 1 Feedback chatbot llm - first try -> 2nd try !
 
-# 2 Vestido muito específico, precisa de alguém vestindo. Trocar somente o fundo.
+# [x] 2 Vestido muito específico, precisa de alguém vestindo. Trocar somente o fundo.
 
 # [x] 3 Personagens estoa saindo muito de lado ou de costas, corrigir
  - deixar ser 3/4, só nao pode costas ou lado
