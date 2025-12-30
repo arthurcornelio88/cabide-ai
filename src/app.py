@@ -18,7 +18,7 @@ st.set_page_config(
 
 # --- Singleton-style Initialization ---
 @st.cache_resource
-def get_engine():
+def get_engine(_version="1.1.0-conjunto"):
     return FashionEngine()
 
 @st.cache_resource
