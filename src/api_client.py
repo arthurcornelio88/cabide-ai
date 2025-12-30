@@ -43,7 +43,8 @@ class CabideAPIClient:
         activity: str = "posing for a lifestyle catalog",
         garment_number: str = None,
         garment_type: str = None,
-        position: str = None
+        position: str = None,
+        feedback: str = None
     ) -> dict:
         """
         Generate lifestyle photo via backend API.
@@ -70,6 +71,8 @@ class CabideAPIClient:
             data['garment_type'] = garment_type
         if position:
             data['position'] = position
+        if feedback:
+            data['feedback'] = feedback
 
         response = requests.post(
             f"{self.base_url}/generate",

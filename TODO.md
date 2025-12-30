@@ -12,8 +12,6 @@
 
 # [x] 5 conjunto : melhorar prompt pra aceitar conjunto de peças
 
-# 6 apagar arquivo de upload quando processamento termina
-
 # [x] 7 tipo fisico (caixa optional)
  - alta, baixa, media
  - magra, normal, cheinha

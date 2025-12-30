@@ -24,10 +24,10 @@ def get_engine(_version="1.3.0-feedback"):
 @st.cache_resource
 def get_drive_manager(_settings: Settings):
     """
-    Initializes DriveService if in prod mode and credentials exist.
+    Initializes DriveService if credentials exist (works in both local and prod mode).
     The underscore prefix tells Streamlit not to hash this object.
     """
-    if _settings.storage_mode == "prod" and _settings.gcp_service_account_json != "{}":
+    if _settings.gcp_service_account_json != "{}" and _settings.gdrive_folder_id:
         try:
             sa_info = json.loads(_settings.gcp_service_account_json)
             return DriveService(sa_info, _settings.gdrive_folder_id)
@@ -594,29 +594,58 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes:
                 params = st.session_state.last_params
                 temp_paths = st.session_state.last_temp_paths
 
-                # Regenerate with feedback
-                result_feedback = engine.generate_lifestyle_photo(
-                    garment_path=temp_paths,
-                    environment=params["env_value"],
-                    activity=params["act_value"],
-                    garment_number=params["garment_number"].strip(),
-                    garment_type=params["garment_type"],
-                    position=params["position"],
-                    conjunto_pieces=params.get("conjunto_data"),
-                    model_attributes=params.get("model_attrs"),
-                    feedback=feedback_text
-                )
+                # Determine mode: API or Direct Engine
+                use_api = api_client is not None and settings.backend_url
 
-                # Handle result
-                if isinstance(result_feedback, list):
-                    result_feedback = result_feedback[0]
+                if use_api:
+                    # API MODE: Need to read temp file and send via API
+                    # For now, send first file (multi-file feedback support needs backend update)
+                    with open(temp_paths[0], "rb") as f:
+                        image_buffer = io.BytesIO(f.read())
+                    image_buffer.seek(0)
 
-                if result_feedback.startswith("http"):
-                    response = requests.get(result_feedback)
-                    image_bytes_feedback = response.content
+                    result = api_client.generate_photo(
+                        image_file=image_buffer,
+                        filename=os.path.basename(temp_paths[0]),
+                        environment=params["env_value"],
+                        activity=params["act_value"],
+                        garment_number=params["garment_number"].strip(),
+                        garment_type=params["garment_type"],
+                        position=params["position"],
+                        feedback=feedback_text
+                    )
+
+                    if 'url' in result:
+                        # Production mode: Fetch from URL
+                        response = requests.get(result['url'])
+                        image_bytes_feedback = response.content
+                    else:
+                        # Local mode: Use returned bytes
+                        image_bytes_feedback = result['image_bytes']
                 else:
-                    with open(result_feedback, "rb") as f:
-                        image_bytes_feedback = f.read()
+                    # DIRECT ENGINE MODE
+                    result_feedback = engine.generate_lifestyle_photo(
+                        garment_path=temp_paths,
+                        environment=params["env_value"],
+                        activity=params["act_value"],
+                        garment_number=params["garment_number"].strip(),
+                        garment_type=params["garment_type"],
+                        position=params["position"],
+                        conjunto_pieces=params.get("conjunto_data"),
+                        model_attributes=params.get("model_attrs"),
+                        feedback=feedback_text
+                    )
+
+                    # Handle result
+                    if isinstance(result_feedback, list):
+                        result_feedback = result_feedback[0]
+
+                    if result_feedback.startswith("http"):
+                        response = requests.get(result_feedback)
+                        image_bytes_feedback = response.content
+                    else:
+                        with open(result_feedback, "rb") as f:
+                            image_bytes_feedback = f.read()
 
                 # Update session state with new image (this will make it the "current" image)
                 st.session_state.last_image_bytes = image_bytes_feedback

@@ -88,6 +88,7 @@ async def generate_model_photo(
     garment_number: str | None = None,
     garment_type: str | None = None,
     position: str | None = None,
+    feedback: str | None = None,
     settings: Settings = Depends(get_settings)
 ):
     """
@@ -179,7 +180,8 @@ async def generate_model_photo(
             activity="posing for a lifestyle catalog",
             garment_number=garment_number,
             garment_type=garment_type,
-            position=position
+            position=position,
+            feedback=feedback
         )
 
         # Response based on Storage Mode
