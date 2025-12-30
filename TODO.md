@@ -1,4 +1,4 @@
-# 1 Feedback chatbot llm - first try -> 2nd try !
+# [x] 1 Feedback chatbot llm - first try -> 2nd try !
 
 # [x] 2 Vestido muito específico, precisa de alguém vestindo. Trocar somente o fundo.
 

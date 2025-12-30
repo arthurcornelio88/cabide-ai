@@ -102,7 +102,8 @@ class FashionEngine:
         garment_type: str = None,
         position: str = None,
         conjunto_pieces: dict = None,
-        model_attributes: dict = None
+        model_attributes: dict = None,
+        feedback: str = None
     ) -> str:
         # Handle single or list (front/back)
         paths = [garment_path] if isinstance(garment_path, str) else garment_path
@@ -220,6 +221,11 @@ class FashionEngine:
                 model_hint = "\n\nMODEL ATTRIBUTES: " + ", ".join(attr_parts) + "."
 
         final_prompt = formatted_prompt + conjunto_hint + position_hint + model_hint
+
+        # Add user feedback if provided (for regeneration/improvement)
+        if feedback:
+            feedback_instruction = f"\n\nUSER FEEDBACK FOR IMPROVEMENT: {feedback}\nPlease incorporate this feedback while maintaining all other quality requirements and garment fidelity."
+            final_prompt = final_prompt + feedback_instruction
 
         # Multimodal call
         content_parts = [final_prompt] + garment_images

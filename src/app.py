@@ -18,7 +18,7 @@ st.set_page_config(
 
 # --- Singleton-style Initialization ---
 @st.cache_resource
-def get_engine(_version="1.2.0-model-attributes"):
+def get_engine(_version="1.3.0-feedback"):
     return FashionEngine()
 
 @st.cache_resource
@@ -210,12 +210,12 @@ else:
     st.info(f"📸 {upload_help_text.get(position, 'Envie as fotos da peça')} • Se não tiver foto das costas, usamos a frente.")
 
 uploaded_files = st.file_uploader(
-    "Upload garment photos (1 ou 2 fotos)",
+    "Envie fotos da peça (1 ou 2 fotos)",
     type=['png', 'jpg', 'jpeg', 'heic', 'heif'],
     accept_multiple_files=True
 )
 
-if st.button("✨ Generate Professional Photo", use_container_width=True):
+if st.button("✨ Gerar foto profissional", use_container_width=True):
     if uploaded_files:
         # Validate metadata
         if not garment_number or not garment_number.strip():
@@ -339,14 +339,26 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                                 with open(result, "rb") as f:
                                     image_bytes = f.read()
 
-                            # Cleanup temp files
-                            for p in temp_paths:
-                                if os.path.exists(p):
-                                    os.remove(p)
+                            # DON'T cleanup temp files yet - keep them for feedback/regeneration
+                            # They will be cleaned up when a new generation starts
 
                         # 4. Display Results
                         st.success("Generation Complete!")
-                        st.image(image_bytes, caption=f"{selected_env_label} | {selected_act_label}")
+
+                        # Store in session state for feedback/regeneration
+                        st.session_state.last_image_bytes = image_bytes
+                        st.session_state.last_temp_paths = temp_paths
+                        st.session_state.last_params = {
+                            "env_value": env_value,
+                            "act_value": act_value,
+                            "garment_number": garment_number,
+                            "garment_type": garment_type,
+                            "position": position,
+                            "conjunto_data": conjunto_data,
+                            "model_attrs": model_attrs if model_attrs else None,
+                            "selected_env_label": selected_env_label,
+                            "selected_act_label": selected_act_label
+                        }
 
                         # --- Actions (Download & Drive) ---
                         col_down, col_drive = st.columns(2)
@@ -489,14 +501,26 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                             with open(result, "rb") as f:
                                 image_bytes = f.read()
 
-                        # Cleanup temp files
-                        for p in temp_paths:
-                            if os.path.exists(p):
-                                os.remove(p)
+                        # DON'T cleanup temp files yet - keep them for feedback/regeneration
+                        # They will be cleaned up when a new generation starts
 
                     # 4. Display Results
                     st.success("Generation Complete!")
-                    st.image(image_bytes, caption=f"{selected_env_label} | {selected_act_label}")
+
+                    # Store in session state for feedback/regeneration
+                    st.session_state.last_image_bytes = image_bytes
+                    st.session_state.last_temp_paths = temp_paths
+                    st.session_state.last_params = {
+                        "env_value": env_value,
+                        "act_value": act_value,
+                        "garment_number": garment_number,
+                        "garment_type": garment_type,
+                        "position": position,
+                        "conjunto_data": conjunto_data,
+                        "model_attrs": model_attrs if model_attrs else None,
+                        "selected_env_label": selected_env_label,
+                        "selected_act_label": selected_act_label
+                    }
 
                     # --- Actions (Download & Drive) ---
                     col_down, col_drive = st.columns(2)
@@ -531,4 +555,74 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                 except Exception as e:
                     st.error(f"Engine Error: {e}")
     else:
-        st.error("Please upload at least one garment photo.")
+        st.error("Por favor, envie pelo menos uma foto da peça.")
+
+# --- FEEDBACK SECTION (Always visible after any generation) ---
+if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes:
+    st.divider()
+
+    # Display the last generated image persistently
+    params = st.session_state.last_params
+    st.image(st.session_state.last_image_bytes, caption=f"{params['selected_env_label']} | {params['selected_act_label']}")
+
+    # Download button for current image
+    from src.engine import TYPE_NORMALIZATION
+    normalized_type = TYPE_NORMALIZATION.get(params["garment_type"].lower(), params["garment_type"].lower())
+    download_filename = f"cabide_{params['garment_number'].strip()}_{normalized_type}.png"
+
+    st.download_button(
+        label="💾 Download Imagem Atual",
+        data=st.session_state.last_image_bytes,
+        file_name=download_filename,
+        mime="image/png",
+        use_container_width=True
+    )
+
+    st.subheader("💬 Quer melhorar a imagem?")
+
+    feedback_text = st.text_area(
+        "O que você gostaria de ajustar?",
+        placeholder="Ex: 'Colocar em festa, em vez de praia'",
+        height=80,
+        key="feedback_text"
+    )
+
+    if st.button("🔄 Regenerar com Feedback", use_container_width=True, disabled=not feedback_text):
+        with st.spinner("Regenerando com seu feedback..."):
+            try:
+                # Get parameters from session state
+                params = st.session_state.last_params
+                temp_paths = st.session_state.last_temp_paths
+
+                # Regenerate with feedback
+                result_feedback = engine.generate_lifestyle_photo(
+                    garment_path=temp_paths,
+                    environment=params["env_value"],
+                    activity=params["act_value"],
+                    garment_number=params["garment_number"].strip(),
+                    garment_type=params["garment_type"],
+                    position=params["position"],
+                    conjunto_pieces=params.get("conjunto_data"),
+                    model_attributes=params.get("model_attrs"),
+                    feedback=feedback_text
+                )
+
+                # Handle result
+                if isinstance(result_feedback, list):
+                    result_feedback = result_feedback[0]
+
+                if result_feedback.startswith("http"):
+                    response = requests.get(result_feedback)
+                    image_bytes_feedback = response.content
+                else:
+                    with open(result_feedback, "rb") as f:
+                        image_bytes_feedback = f.read()
+
+                # Update session state with new image (this will make it the "current" image)
+                st.session_state.last_image_bytes = image_bytes_feedback
+
+                # Force rerun to show updated image and clear text area
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"Erro ao regenerar: {e}")
