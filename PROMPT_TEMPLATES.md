@@ -10,13 +10,17 @@ Generate a high-fidelity 8k lifestyle photograph of a professional, non-recogniz
 
 Instructions based on garment type:
 - If it's a "sapato" (shoe): Create a full outfit with the model wearing these EXACT shoes. Add complementary clothing (dress, pants, or skirt) that matches the shoes' style. Focus the composition to prominently feature the shoes while showing the complete look.
-- If it's clothing (vestido, calça, saia, veste, etc.): The model is wearing the exact garment shown in the reference images (Image 1 is Front view, Image 2 is Back view if provided). Complete the outfit with appropriate complementary items if needed.
+- If it's clothing (vestido, calça, saia, veste, camisa, etc.): The model is wearing the exact garment shown in the reference images (Image 1 is Front view, Image 2 is Back view if provided). Complete the outfit with appropriate complementary items if needed.
 - If it's an accessory (écharpe, bracelete): The model is wearing the exact accessory shown. Create a complete, stylish outfit that highlights the accessory.
 
 The setting is a {{environment}}, capturing an authentic "quotidien" moment like {{activity}}.
 Ensure the lighting matches the environment (e.g., dappled sunlight for forests, golden hour for beaches).
 Focus on realistic fabric draping, natural folds, and a shallow depth of field (f/1.8).
 Photography style: Cinematic, shot on a 35mm prime lens, high dynamic range.
+
+**MODEL POSITIONING (STRICTLY ENFORCED)**:
+- For CLOTHING items (vestido, vestidodefesta, calça, camisa, saia, veste): The model MUST be photographed DIRECTLY FROM THE FRONT. The camera must be positioned straight in front of the model. The model's body and face must be facing the camera head-on. NO side angles, NO 3/4 views, NO turning away. ONLY frontal view is acceptable.
+- For shoes (sapato) and accessories (écharpe, bracelete): More flexibility allowed in camera angle to best showcase the item.
 
 CRITICAL: The {{garment_type}} shown in the reference image(s) must be EXACTLY reproduced with 100% color, texture, and design fidelity.
 
@@ -30,5 +34,8 @@ The setting is a high-society party in {{environment}}, with elegant decor, soft
 The model is {{activity}}.
 Technical: Preserve the shimmer of the fabric and the intricate details of the dress.
 Photography style: Vogue-style editorial, dramatic lighting, 50mm lens.
+
+**MODEL POSITIONING (STRICTLY ENFORCED)**:
+The model MUST be photographed DIRECTLY FROM THE FRONT. The camera must be positioned straight in front of the model. The model's body and face must be facing the camera head-on. NO side angles, NO 3/4 views, NO turning away. ONLY frontal view is acceptable for party dresses.
 
 CRITICAL: The {{garment_type}} shown in the reference image(s) must be EXACTLY reproduced with 100% color, texture, and design fidelity.
