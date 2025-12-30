@@ -19,7 +19,7 @@ Focus on realistic fabric draping, natural folds, and a shallow depth of field (
 Photography style: Cinematic, shot on a 35mm prime lens, high dynamic range.
 
 **MODEL POSITIONING (STRICTLY ENFORCED)**:
-- For CLOTHING items (vestido, vestidodefesta, calça, camisa, saia, veste): The model MUST be photographed DIRECTLY FROM THE FRONT. The camera must be positioned straight in front of the model. The model's body and face must be facing the camera head-on. NO side angles, NO 3/4 views, NO turning away. ONLY frontal view is acceptable.
+- For CLOTHING items (vestido, vestidodefesta, calça, camisa, saia, veste): The model MUST be facing forward - either DIRECTLY FROM THE FRONT or at a 3/4 angle (showing front and one side). FORBIDDEN: back view, full side profile, turning away from camera. The garment must be clearly visible from the front.
 - For shoes (sapato) and accessories (écharpe, bracelete): More flexibility allowed in camera angle to best showcase the item.
 
 CRITICAL: The {{garment_type}} shown in the reference image(s) must be EXACTLY reproduced with 100% color, texture, and design fidelity.
@@ -36,6 +36,31 @@ Technical: Preserve the shimmer of the fabric and the intricate details of the d
 Photography style: Vogue-style editorial, dramatic lighting, 50mm lens.
 
 **MODEL POSITIONING (STRICTLY ENFORCED)**:
-The model MUST be photographed DIRECTLY FROM THE FRONT. The camera must be positioned straight in front of the model. The model's body and face must be facing the camera head-on. NO side angles, NO 3/4 views, NO turning away. ONLY frontal view is acceptable for party dresses.
+The model MUST be facing forward - either DIRECTLY FROM THE FRONT or at a 3/4 angle (showing front and one side). FORBIDDEN: back view, full side profile, turning away from camera. The dress must be clearly visible from the front.
 
 CRITICAL: The {{garment_type}} shown in the reference image(s) must be EXACTLY reproduced with 100% color, texture, and design fidelity.
+
+## Template: Virtual Model Conjunto
+Generate a high-fidelity 8k lifestyle photograph of a professional, non-recognizable female model wearing a coordinated outfit (conjunto).
+
+**Garment Type**: {{garment_type}}
+
+CRITICAL INSTRUCTIONS FOR CONJUNTO:
+- You are receiving 2-3 SEPARATE garment images (each piece photographed individually)
+- Image 1: Upper garment (camisa/blusa)
+- Image 2: Lower garment (calça/saia)
+- Image 3 (if provided): Additional piece (veste/écharpe/accessory)
+- You MUST combine ALL these separate pieces into ONE complete, coordinated outfit on the model
+- Reproduce each piece EXACTLY as shown in its reference image with 100% color, texture, and design fidelity
+- Ensure the pieces work together harmoniously as a stylish conjunto
+- The model must wear ALL pieces simultaneously
+
+The setting is a {{environment}}, capturing an authentic "quotidien" moment like {{activity}}.
+Ensure the lighting matches the environment (e.g., dappled sunlight for forests, golden hour for beaches).
+Focus on realistic fabric draping, natural folds, and a shallow depth of field (f/1.8).
+Photography style: Cinematic, shot on a 35mm prime lens, high dynamic range.
+
+**MODEL POSITIONING (STRICTLY ENFORCED)**:
+The model MUST be facing forward - either DIRECTLY FROM THE FRONT or at a 3/4 angle (showing front and one side). FORBIDDEN: back view, full side profile, turning away from camera. The complete conjunto must be clearly visible from the front.
+
+CRITICAL: Each garment piece shown in the separate reference images must be EXACTLY reproduced with 100% color, texture, and design fidelity. The conjunto must look natural and professionally coordinated.

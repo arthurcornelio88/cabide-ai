@@ -2,7 +2,8 @@
 
 # 2 Vestido muito específico, precisa de alguém vestindo. Trocar somente o fundo.
 
-# [x] 3 Personagens estoa saindo muito de lado ou de costas, corrigir
+# [] 3 Personagens estoa saindo muito de lado ou de costas, corrigir
+ - deixar ser 3/4, só nao pode costas ou lado
 
 # [x] 4 Acrescentar
   - tipo de roupa :camisa, conjunto (quando for calca blusa)

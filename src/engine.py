@@ -36,8 +36,11 @@ TYPE_NORMALIZATION = {
     "calça": "calca",
     "calca": "calca",
     "camisa": "camisa",
+    "blusa": "blusa",
+    "colar": "colar",
     "sapato": "sapato",
-    "chaussure": "sapato"
+    "chaussure": "sapato",
+    "conjunto": "conjunto"
 }
 
 class FashionEngine:
@@ -65,7 +68,9 @@ class FashionEngine:
     def _load_template(self, filename: str) -> str:
         """Determines template based on file content/name."""
         template_name = "Virtual Model Quotidien"
-        if "vestidodefesta" in filename.lower():
+        if filename == "conjunto":
+            template_name = "Virtual Model Conjunto"
+        elif "vestidodefesta" in filename.lower():
             template_name = "Virtual Model Party"
 
         content = self.settings.templates_file.read_text()
@@ -92,7 +97,8 @@ class FashionEngine:
         activity: str = None,
         garment_number: str = None,
         garment_type: str = None,
-        position: str = None
+        position: str = None,
+        conjunto_pieces: dict = None
     ) -> str:
         # Handle single or list (front/back)
         paths = [garment_path] if isinstance(garment_path, str) else garment_path
@@ -126,27 +132,45 @@ class FashionEngine:
             final_env = "a gala ballroom"
             final_act = "holding a champagne glass"
 
-        raw_template = self._load_template(ref_filename)
+        # Load appropriate template
+        if garment_type and garment_type.lower() == "conjunto":
+            raw_template = self._load_template("conjunto")
+        else:
+            raw_template = self._load_template(ref_filename)
+
         formatted_prompt = (raw_template
                            .replace("{{environment}}", final_env)
                            .replace("{{activity}}", final_act)
                            .replace("{{garment_type}}", normalized_type))
 
-        # Add position hint if provided and multiple images
-        position_hint = ""
-        if position and len(garment_images) > 1:
-            if position.lower() in ["ambos", "both"]:
-                position_hint = "\n\nNote: Image 1 shows the front view, Image 2 shows the back view."
-        elif position and len(garment_images) == 1:
-            position_map = {
-                "frente": "front view",
-                "costas": "back view"
-            }
-            view = position_map.get(position.lower(), "")
-            if view:
-                position_hint = f"\n\nNote: The image shows the {view} of the garment."
+        # Add conjunto-specific hints
+        conjunto_hint = ""
+        if garment_type and garment_type.lower() == "conjunto" and conjunto_pieces:
+            piece1 = conjunto_pieces.get("piece1_type", "")
+            piece2 = conjunto_pieces.get("piece2_type", "")
+            piece3 = conjunto_pieces.get("piece3_type", "")
 
-        final_prompt = formatted_prompt + position_hint
+            conjunto_hint = f"\n\nCONJUNTO COMPOSITION: Image 1 = {piece1}, Image 2 = {piece2}"
+            if piece3:
+                conjunto_hint += f", Image 3 = {piece3}"
+            conjunto_hint += ". You must combine ALL these separate garment pieces into ONE coordinated outfit on the model."
+
+        # Add position hint if provided and multiple images (for non-conjunto)
+        position_hint = ""
+        if not conjunto_hint:  # Only for non-conjunto items
+            if position and len(garment_images) > 1:
+                if position.lower() in ["ambos", "both"]:
+                    position_hint = "\n\nNote: Image 1 shows the front view, Image 2 shows the back view."
+            elif position and len(garment_images) == 1:
+                position_map = {
+                    "frente": "front view",
+                    "costas": "back view"
+                }
+                view = position_map.get(position.lower(), "")
+                if view:
+                    position_hint = f"\n\nNote: The image shows the {view} of the garment."
+
+        final_prompt = formatted_prompt + conjunto_hint + position_hint
 
         # Multimodal call
         content_parts = [final_prompt] + garment_images
@@ -228,8 +252,27 @@ class FashionEngine:
                 f"Got: garment_number={garment_number}, garment_type={garment_type}"
             )
 
-        normalized_type = self._normalize_garment_type(garment_type)
-        output_filename = f"cabide_{garment_number}_{normalized_type}.png"
+        # Special filename format for conjunto
+        if garment_type.lower() == "conjunto" and conjunto_pieces:
+            piece1 = self._normalize_garment_type(conjunto_pieces.get("piece1_type", ""))
+            piece2 = self._normalize_garment_type(conjunto_pieces.get("piece2_type", ""))
+            piece3 = conjunto_pieces.get("piece3_type")
+
+            # Format: cabide_conjunto_100-camisa-27-calca-18-veste.png
+            filename_parts = [f"cabide_conjunto_{garment_number}-{piece1}"]
+
+            # For now, using same number for all pieces (can be enhanced later)
+            filename_parts.append(f"-{garment_number}-{piece2}")
+
+            if piece3:
+                piece3_norm = self._normalize_garment_type(piece3)
+                filename_parts.append(f"-{garment_number}-{piece3_norm}")
+
+            output_filename = "".join(filename_parts) + ".png"
+        else:
+            normalized_type = self._normalize_garment_type(garment_type)
+            output_filename = f"cabide_{garment_number}_{normalized_type}.png"
+
         logger.info(f"Output filename: {output_filename}")
 
         result_path = self._save_image(generated_pil, output_filename)

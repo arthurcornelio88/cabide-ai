@@ -101,7 +101,7 @@ with st.expander("📋 Dados da Peça", expanded=True):
         garment_type = st.selectbox(
             "Tipo da Peça *",
             ["", "Vestido", "Vestido de Festa", "Calça", "Camisa", "Saia",
-             "Sapato", "Écharpe", "Bracelete", "Veste"],
+             "Sapato", "Écharpe", "Bracelete", "Veste", "Conjunto"],
             help="Selecione o tipo de roupa"
         )
     with col_position:
@@ -111,15 +111,45 @@ with st.expander("📋 Dados da Peça", expanded=True):
             help="Útil para vestidos e peças com frente/costas diferentes. Se não enviar costas, usamos a frente."
         )
 
-# --- File Upload Section ---
-# Multi-file upload for Front/Back support
-upload_help_text = {
-    "Frente": "Envie 1 ou mais fotos da frente",
-    "Costas": "Envie 1 ou mais fotos das costas",
-    "Ambos": "Envie 2 fotos: frente e costas (recomendado para vestidos)"
-}
+# --- Conjunto Composition (Conditional) ---
+piece1_type = None
+piece2_type = None
+piece3_type = None
+if garment_type == "Conjunto":
+    with st.expander("👔 Composição do Conjunto", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            piece1_type = st.selectbox(
+                "Peça Superior *",
+                ["", "Camisa", "Blusa"],
+                help="Parte de cima do conjunto (obrigatório)"
+            )
+        with col2:
+            piece2_type = st.selectbox(
+                "Peça Inferior *",
+                ["", "Calça", "Saia"],
+                help="Parte de baixo do conjunto (obrigatório)"
+            )
+        with col3:
+            piece3_type = st.selectbox(
+                "Peça Adicional (Opcional)",
+                ["", "Veste", "Écharpe", "Bracelete", "Colar"],
+                help="Veste, acessório ou complemento (opcional)"
+            )
 
-st.info(f"📸 {upload_help_text.get(position, 'Envie as fotos da peça')} • Se não tiver foto das costas, usamos a frente.")
+# --- File Upload Section ---
+# Multi-file upload for Front/Back support or Conjunto pieces
+if garment_type == "Conjunto":
+    num_pieces = 2 if not piece3_type else 3
+    st.info(f"📸 Envie {num_pieces} fotos separadas na ordem: 1) {piece1_type or 'Peça Superior'}, 2) {piece2_type or 'Peça Inferior'}" +
+            (f", 3) {piece3_type}" if piece3_type else ""))
+else:
+    upload_help_text = {
+        "Frente": "Envie 1 ou mais fotos da frente",
+        "Costas": "Envie 1 ou mais fotos das costas",
+        "Ambos": "Envie 2 fotos: frente e costas (recomendado para vestidos)"
+    }
+    st.info(f"📸 {upload_help_text.get(position, 'Envie as fotos da peça')} • Se não tiver foto das costas, usamos a frente.")
 
 uploaded_files = st.file_uploader(
     "Upload garment photos (1 ou 2 fotos)",
@@ -134,6 +164,12 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
             st.error("⚠️ Por favor, preencha o Número da Peça")
         elif not garment_type:
             st.error("⚠️ Por favor, selecione o Tipo da Peça")
+        elif garment_type == "Conjunto" and (not piece1_type or not piece2_type):
+            st.error("⚠️ Por favor, selecione a Peça Superior e Peça Inferior do conjunto")
+        elif garment_type == "Conjunto":
+            expected_photos = 2 if not piece3_type else 3
+            if len(uploaded_files) != expected_photos:
+                st.error(f"⚠️ Por favor, envie exatamente {expected_photos} fotos para o conjunto ({len(uploaded_files)} enviada(s))")
         else:
             # Optional: Show info if user selected "Ambos" but only uploaded 1 photo
             if position == "Ambos" and len(uploaded_files) == 1:
@@ -201,14 +237,24 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
 
                             temp_paths.append(temp_name)
 
-                        # 2. Call Engine (Handles single/list paths and front/back logic)
+                        # 2. Prepare conjunto metadata if applicable
+                        conjunto_data = None
+                        if garment_type == "Conjunto":
+                            conjunto_data = {
+                                "piece1_type": piece1_type,
+                                "piece2_type": piece2_type,
+                                "piece3_type": piece3_type
+                            }
+
+                        # 3. Call Engine (Handles single/list paths and front/back logic)
                         result = engine.generate_lifestyle_photo(
                             garment_path=temp_paths,
                             environment=env_value,
                             activity=act_value,
                             garment_number=garment_number.strip(),
                             garment_type=garment_type,
-                            position=position
+                            position=position,
+                            conjunto_pieces=conjunto_data
                         )
 
                         # 3. Handle result data for Download/Drive
