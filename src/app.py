@@ -71,7 +71,7 @@ if settings.backend_url:
 
 # --- UI Header ---
 st.title("👗 Cabide AI")
-st.markdown("### Professional Catalog Generator for your Mother's Store")
+st.markdown("### Gerador de Catálogo Profissional para o Cabide da Ieié")
 st.info(f"📍 Region: Brazil (southamerica-east1) | Storage: **{settings.storage_mode.upper()}**")
 
 # --- UI Controls ---
@@ -595,15 +595,17 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
 
     with col_drive:
         if drive_manager:
-            # Check if we have a drive URL in session state for current image
-            drive_url_key = f"drive_url_{download_filename}"
+            # Generate unique key for this specific image using hash of bytes
+            import hashlib
+            image_hash = hashlib.md5(st.session_state.last_image_bytes).hexdigest()[:8]
+            drive_url_key = f"drive_url_{download_filename}_{image_hash}"
 
             if drive_url_key in st.session_state:
                 # Already uploaded - show link
                 st.link_button("✅ View on Google Drive", st.session_state[drive_url_key], use_container_width=True)
             else:
                 # Not uploaded yet - show upload button
-                if st.button("📤 Save to Store Drive", use_container_width=True, key=f"drive_btn_{download_filename}"):
+                if st.button("📤 Save to Store Drive", use_container_width=True, key=f"drive_btn_{image_hash}"):
                     with st.spinner("Uploading..."):
                         try:
                             drive_url = drive_manager.upload_file(

@@ -20,62 +20,76 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
     st.subheader("🔐 Login Necessário")
     st.info("Para usar o Google Drive e a API, você precisa fazer login com sua conta Google.")
 
-    # Initialize session state for OAuth flow
-    if "oauth_flow" not in st.session_state:
-        st.session_state.oauth_flow = None
+    # Initialize session state for auth URL
+    if "oauth_auth_url" not in st.session_state:
+        st.session_state.oauth_auth_url = None
 
-    # Step 1: Show login button
-    if st.session_state.oauth_flow is None:
-        if st.button("🔑 Login com Google", use_container_width=True, type="primary"):
-            # Generate auth URL
-            auth_url, flow = oauth_helper.get_auth_url()
-            st.session_state.oauth_flow = flow
+    # Step 1: Generate and show auth URL
+    if st.session_state.oauth_auth_url is None:
+        if st.button("🔑 Gerar Link de Login", use_container_width=True, type="primary"):
+            try:
+                # Generate auth URL without starting server
+                auth_url, _ = oauth_helper.get_auth_url()
+                st.session_state.oauth_auth_url = auth_url
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Erro ao gerar link: {e}")
 
-            # Show instructions
-            st.markdown("### Instruções:")
-            st.markdown(f"1. **[Clique aqui para autorizar]({auth_url})**")
-            st.markdown("2. Faça login com sua conta Google")
-            st.markdown("3. Copie o código de autorização")
-            st.markdown("4. Cole o código abaixo e clique em 'Confirmar'")
+    # Step 2: Show URL and wait for user to authorize
+    if st.session_state.oauth_auth_url is not None:
+        st.markdown("### 📋 Instruções:")
+        st.markdown("1. **Clique no link abaixo** para abrir o Google:")
 
-            st.rerun()
+        # Show clickable link
+        st.markdown(f"### 🔗 [{st.session_state.oauth_auth_url}]({st.session_state.oauth_auth_url})")
 
-    # Step 2: Show code input after user clicks login
-    if st.session_state.oauth_flow is not None:
-        st.markdown("### Cole o código de autorização:")
+        st.markdown("2. **Faça login** com sua conta Google")
+        st.markdown("3. **Autorize** o acesso ao Cabide AI")
+        st.markdown("4. Você será redirecionado para `http://localhost:8080`")
+        st.markdown("5. **Copie a URL completa** da barra de endereço (começa com `http://localhost:8080/?code=...`)")
+        st.markdown("6. **Cole abaixo**:")
 
-        code = st.text_input(
-            "Código:",
-            placeholder="Cole aqui o código que você copiou",
-            key="auth_code"
+        # Input for redirect URL
+        redirect_url = st.text_input(
+            "Cole a URL completa aqui:",
+            placeholder="http://localhost:8080/?code=4/0A...&scope=...",
+            key="redirect_url_input"
         )
 
         col1, col2 = st.columns(2)
 
         with col1:
-            if st.button("✅ Confirmar", use_container_width=True, disabled=not code):
+            if st.button("✅ Confirmar", use_container_width=True, disabled=not redirect_url):
                 try:
                     with st.spinner("Autenticando..."):
-                        # Exchange code for credentials
-                        creds = oauth_helper.save_credentials_from_code(
-                            st.session_state.oauth_flow,
-                            code.strip()
-                        )
+                        # Extract code from URL
+                        import urllib.parse
+                        parsed = urllib.parse.urlparse(redirect_url)
+                        params = urllib.parse.parse_qs(parsed.query)
 
-                        # Clear the flow
-                        st.session_state.oauth_flow = None
+                        if 'code' not in params:
+                            st.error("❌ URL inválida. Certifique-se de copiar a URL completa!")
+                        else:
+                            code = params['code'][0]
 
-                        st.success("✅ Login realizado com sucesso!")
-                        st.balloons()
-                        st.rerun()
+                            # Create new flow and exchange code
+                            _, flow = oauth_helper.get_auth_url()
+                            creds = oauth_helper.save_credentials_from_code(flow, code)
+
+                            # Clear session state
+                            st.session_state.oauth_auth_url = None
+
+                            st.success("✅ Login realizado com sucesso!")
+                            st.balloons()
+                            st.rerun()
 
                 except Exception as e:
                     st.error(f"❌ Erro ao fazer login: {e}")
-                    st.error("Verifique se você copiou o código corretamente e tente novamente.")
+                    st.error("Verifique se você copiou a URL completa corretamente.")
 
         with col2:
             if st.button("❌ Cancelar", use_container_width=True):
-                st.session_state.oauth_flow = None
+                st.session_state.oauth_auth_url = None
                 st.rerun()
 
     return False

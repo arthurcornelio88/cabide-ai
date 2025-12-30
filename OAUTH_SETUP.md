@@ -19,17 +19,22 @@
      - App name: `Cabide AI`
      - User support email: seu email
      - Developer contact: seu email
-   - **Scopes**: Adicione:
-     - `.../auth/drive.file`
-     - `.../auth/userinfo.email`
-     - `.../auth/userinfo.profile`
+   - **Scopes**: Clique em "Add or Remove Scopes" e adicione:
+     - `https://www.googleapis.com/auth/drive.file`
+     - `https://www.googleapis.com/auth/userinfo.email`
+     - `https://www.googleapis.com/auth/userinfo.profile`
    - **Test users**: Adicione seu email e o da sua mãe
-   - Salve
+   - Clique em "Save and Continue" até terminar
 
 6. **Crie o OAuth Client ID**:
-   - Application type: **Desktop app**
+   - Volte para **Credentials** > **Create Credentials** > **OAuth client ID**
+   - Application type: **Desktop app** ⚠️ IMPORTANTE: tem que ser Desktop app!
    - Name: `Cabide AI Desktop`
+   - **Authorized domains**: deixe vazio (ou adicione só `localhost` sem http://)
    - Clique em **Create**
+
+   ✅ Pronto! O tipo "Desktop app" já permite usar `http://localhost` automaticamente.
+   ❌ NÃO precisa adicionar redirect URIs manualmente!
 
 7. **Baixe o arquivo JSON**:
    - Clique no botão **Download JSON** (ícone de download)

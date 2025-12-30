@@ -101,16 +101,18 @@ class UnifiedOAuthHelper:
 
         return user_info
 
-    def get_auth_url(self, redirect_uri: str = "urn:ietf:wg:oauth:2.0:oob") -> tuple:
+    def get_auth_url(self, port: int = 8080) -> tuple:
         """
         Get OAuth authorization URL for user to visit.
 
         Args:
-            redirect_uri: OAuth redirect URI (default is for manual copy-paste flow)
+            port: Local port for redirect URI (default 8080)
 
         Returns:
             tuple: (authorization_url, flow_state)
         """
+        redirect_uri = f"http://localhost:{port}"
+
         flow = Flow.from_client_secrets_file(
             self.client_secrets_file,
             scopes=self.SCOPES,
@@ -138,6 +140,40 @@ class UnifiedOAuthHelper:
         """
         flow.fetch_token(code=code)
         creds = flow.credentials
+
+        # Save credentials for future use
+        with open(self.TOKEN_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+
+        # Fetch and save user info
+        self.fetch_and_save_user_info(creds)
+
+        return creds
+
+    def run_local_server_flow(self, port: int = 8080) -> Credentials:
+        """
+        Run OAuth flow with local server (easier for users).
+        Opens browser automatically and catches the redirect.
+
+        Args:
+            port: Local port for redirect server
+
+        Returns:
+            Credentials object
+        """
+        from google_auth_oauthlib.flow import InstalledAppFlow
+
+        flow = InstalledAppFlow.from_client_secrets_file(
+            self.client_secrets_file,
+            scopes=self.SCOPES
+        )
+
+        # Run local server and get credentials
+        creds = flow.run_local_server(
+            port=port,
+            access_type='offline',
+            prompt='consent'
+        )
 
         # Save credentials for future use
         with open(self.TOKEN_FILE, 'wb') as token:
