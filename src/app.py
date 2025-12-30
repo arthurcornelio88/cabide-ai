@@ -18,7 +18,7 @@ st.set_page_config(
 
 # --- Singleton-style Initialization ---
 @st.cache_resource
-def get_engine(_version="1.1.0-conjunto"):
+def get_engine(_version="1.2.0-model-attributes"):
     return FashionEngine()
 
 @st.cache_resource
@@ -137,6 +137,58 @@ if garment_type == "Conjunto":
                 help="Veste, acessório ou complemento (opcional)"
             )
 
+# --- Model Attributes (Optional) ---
+model_height = None
+model_body_type = None
+model_skin_tone = None
+model_hair_length = None
+model_hair_texture = None
+model_hair_color = None
+model_hair_style = None
+
+with st.expander("👤 Características da Modelo (Opcional)", expanded=False):
+    st.caption("Personalize a aparência da modelo virtual. Se não preencher, usaremos características aleatórias.")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        model_height = st.selectbox(
+            "Altura",
+            ["", "Baixa", "Média", "Alta"],
+            help="Estatura da modelo"
+        )
+        model_body_type = st.selectbox(
+            "Tipo Físico",
+            ["", "Esguia", "Média", "Plus Size"],
+            help="Biotipo da modelo"
+        )
+        model_skin_tone = st.selectbox(
+            "Tom de Pele",
+            ["", "Pele Clara", "Pele Média", "Pele Morena", "Pele Escura", "Pele Negra"],
+            help="Tonalidade de pele"
+        )
+
+    with col2:
+        model_hair_length = st.selectbox(
+            "Cabelo - Comprimento",
+            ["", "Curto", "Médio", "Longo"],
+            help="Comprimento do cabelo"
+        )
+        model_hair_texture = st.selectbox(
+            "Cabelo - Textura",
+            ["", "Liso", "Ondulado", "Cacheado", "Crespo"],
+            help="Textura natural do cabelo"
+        )
+        model_hair_color = st.selectbox(
+            "Cabelo - Cor",
+            ["", "Loiro", "Castanho", "Ruivo", "Preto", "Grisalho"],
+            help="Cor do cabelo"
+        )
+        model_hair_style = st.selectbox(
+            "Cabelo - Estilo",
+            ["", "Solto", "Preso", "Coque", "Rabo de Cavalo"],
+            help="Estilo do penteado"
+        )
+
 # --- File Upload Section ---
 # Multi-file upload for Front/Back support or Conjunto pieces
 if garment_type == "Conjunto":
@@ -246,6 +298,19 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                                 "piece3_type": piece3_type
                             }
 
+                        # 2.5. Prepare model attributes if provided
+                        model_attrs = {
+                            "height": model_height,
+                            "body_type": model_body_type,
+                            "skin_tone": model_skin_tone,
+                            "hair_length": model_hair_length,
+                            "hair_texture": model_hair_texture,
+                            "hair_color": model_hair_color,
+                            "hair_style": model_hair_style
+                        }
+                        # Filter out empty values
+                        model_attrs = {k: v for k, v in model_attrs.items() if v}
+
                         # 3. Call Engine (Handles single/list paths and front/back logic)
                         result = engine.generate_lifestyle_photo(
                             garment_path=temp_paths,
@@ -254,7 +319,8 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
                             garment_number=garment_number.strip(),
                             garment_type=garment_type,
                             position=position,
-                            conjunto_pieces=conjunto_data
+                            conjunto_pieces=conjunto_data,
+                            model_attributes=model_attrs if model_attrs else None
                         )
 
                         # 3. Handle result data for Download/Drive

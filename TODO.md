@@ -2,7 +2,7 @@
 
 # 2 Vestido muito específico, precisa de alguém vestindo. Trocar somente o fundo.
 
-# [] 3 Personagens estoa saindo muito de lado ou de costas, corrigir
+# [x] 3 Personagens estoa saindo muito de lado ou de costas, corrigir
  - deixar ser 3/4, só nao pode costas ou lado
 
 # [x] 4 Acrescentar
@@ -10,7 +10,7 @@
   - tipo de ambiente : escritório, congresso, consultório
   - situações : fazendo apresentação, atendendo cliente
 
-# 5 conjunto : melhorar prompt pra aceitar conjunto de peças
+# [x] 5 conjunto : melhorar prompt pra aceitar conjunto de peças
 
 # 6 apagar arquivo de upload quando processamento termina
 

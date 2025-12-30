@@ -98,7 +98,8 @@ class FashionEngine:
         garment_number: str = None,
         garment_type: str = None,
         position: str = None,
-        conjunto_pieces: dict = None
+        conjunto_pieces: dict = None,
+        model_attributes: dict = None
     ) -> str:
         # Handle single or list (front/back)
         paths = [garment_path] if isinstance(garment_path, str) else garment_path
@@ -170,7 +171,50 @@ class FashionEngine:
                 if view:
                     position_hint = f"\n\nNote: The image shows the {view} of the garment."
 
-        final_prompt = formatted_prompt + conjunto_hint + position_hint
+        # Add model attributes hint if provided
+        model_hint = ""
+        if model_attributes:
+            attr_parts = []
+
+            # Map Portuguese to English for the AI
+            attr_mapping = {
+                "Baixa": "short height",
+                "Média": "average height",
+                "Alta": "tall height",
+                "Esguia": "slender body type",
+                "Plus Size": "plus size body type",
+                "Pele Clara": "fair skin tone",
+                "Pele Média": "medium skin tone",
+                "Pele Morena": "tan skin tone",
+                "Pele Escura": "dark skin tone",
+                "Pele Negra": "black skin tone",
+                "Curto": "short hair",
+                "Médio": "medium-length hair",
+                "Longo": "long hair",
+                "Liso": "straight hair",
+                "Ondulado": "wavy hair",
+                "Cacheado": "curly hair",
+                "Crespo": "coily/kinky hair",
+                "Loiro": "blonde hair",
+                "Castanho": "brown hair",
+                "Ruivo": "red hair",
+                "Preto": "black hair",
+                "Grisalho": "gray hair",
+                "Solto": "hair down",
+                "Preso": "hair tied up",
+                "Coque": "hair in a bun",
+                "Rabo de Cavalo": "hair in a ponytail"
+            }
+
+            for key, value in model_attributes.items():
+                if value:  # Only include non-empty attributes
+                    english_value = attr_mapping.get(value, value.lower())
+                    attr_parts.append(english_value)
+
+            if attr_parts:
+                model_hint = "\n\nMODEL ATTRIBUTES: " + ", ".join(attr_parts) + "."
+
+        final_prompt = formatted_prompt + conjunto_hint + position_hint + model_hint
 
         # Multimodal call
         content_parts = [final_prompt] + garment_images
