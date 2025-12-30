@@ -22,7 +22,11 @@
    - tipo: crespo, liso
    - cor : loiro, castanho, ruivo, preto
 
-# 8 deploy in streamlit cloud !
+# 8 google drive upload
+
+# 9 securiser api
+
+# 10 deploy in streamlit cloud / cloudrun !
 
 # 9 a fazer
 

@@ -2,12 +2,13 @@ import os
 import shutil
 import uuid
 import logging
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, Header
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 import google.generativeai as genai
+import requests
 
 from src.engine import FashionEngine
 from src.config import get_settings, Settings
@@ -33,6 +34,60 @@ os.makedirs(_init_settings.output_dir, exist_ok=True)
 engine = FashionEngine()
 
 # --- Helper Functions ---
+
+async def verify_oauth_token(authorization: Optional[str] = Header(None)):
+    """
+    Verify OAuth token by calling Google's userinfo endpoint.
+
+    Args:
+        authorization: Authorization header with Bearer token
+
+    Returns:
+        User info dict if token is valid
+
+    Raises:
+        HTTPException: If token is invalid or missing
+    """
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Please provide Bearer token in Authorization header."
+        )
+
+    # Extract token from "Bearer <token>"
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authorization header format. Expected: Bearer <token>"
+        )
+
+    token = parts[1]
+
+    # Verify token with Google
+    try:
+        response = requests.get(
+            'https://www.googleapis.com/oauth2/v2/userinfo',
+            headers={'Authorization': f'Bearer {token}'},
+            timeout=5
+        )
+
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired OAuth token"
+            )
+
+        user_info = response.json()
+        logger.info(f"Authenticated request from: {user_info.get('email', 'unknown')}")
+        return user_info
+
+    except requests.RequestException as e:
+        logger.error(f"OAuth verification failed: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Failed to verify OAuth token"
+        )
 
 def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | None]:
     """
@@ -84,12 +139,13 @@ def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | No
 @app.post("/generate")
 async def generate_model_photo(
     file: Annotated[UploadFile, File(description="Garment photo")],
-    env: str = "street",
-    garment_number: str | None = None,
-    garment_type: str | None = None,
-    position: str | None = None,
-    feedback: str | None = None,
-    settings: Settings = Depends(get_settings)
+    env: Annotated[str, Form()] = "street",
+    garment_number: Annotated[str | None, Form()] = None,
+    garment_type: Annotated[str | None, Form()] = None,
+    position: Annotated[str | None, Form()] = None,
+    feedback: Annotated[str | None, Form()] = None,
+    settings: Settings = Depends(get_settings),
+    user_info: dict = Depends(verify_oauth_token)
 ):
     """
     Generate lifestyle photo from garment image.
@@ -107,6 +163,8 @@ async def generate_model_photo(
     Raises:
         HTTPException: On validation or processing errors
     """
+    logger.info(f"Received request: env={env}, garment_number={garment_number}, garment_type={garment_type}, position={position}, feedback={feedback}, filename={file.filename}")
+
     # Validate file type
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")

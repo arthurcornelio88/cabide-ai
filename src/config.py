@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Google Drive Integration
     gdrive_folder_id: str = Field(default="", validation_alias="GDRIVE_FOLDER_ID")
     gcp_service_account_json: str = Field(default="{}", validation_alias="GCP_SERVICE_ACCOUNT_JSON")
+    gdrive_user_email: str = Field(default="", validation_alias="GDRIVE_USER_EMAIL")  # Email to impersonate
 
     # Paths
     output_dir: Path = Field(default=Path("img/gen_images/output"))
@@ -73,6 +74,34 @@ class Settings(BaseSettings):
             except json.JSONDecodeError:
                 raise ValueError("gcp_service_account_json must be valid JSON")
         return v
+
+    def get_service_account_info(self) -> Optional[dict]:
+        """
+        Load GCP service account credentials with fallback logic:
+        1. Try environment variable GCP_SERVICE_ACCOUNT_JSON (for prod/Docker)
+        2. Try reading from gcp-service-account.json file (for local dev)
+        3. Return None if neither exists
+
+        This works in both local and production without code changes.
+        """
+        # Priority 1: Environment variable (prod/Docker)
+        if self.gcp_service_account_json and self.gcp_service_account_json != "{}":
+            try:
+                return json.loads(self.gcp_service_account_json)
+            except json.JSONDecodeError as e:
+                print(f"Warning: Invalid JSON in GCP_SERVICE_ACCOUNT_JSON env var: {e}")
+
+        # Priority 2: Local file (dev)
+        service_account_file = Path("gcp-service-account.json")
+        if service_account_file.exists():
+            try:
+                with open(service_account_file, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Warning: Could not load gcp-service-account.json: {e}")
+
+        # No credentials found
+        return None
 
 
 # Singleton pattern for settings

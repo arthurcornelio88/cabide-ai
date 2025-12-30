@@ -6,6 +6,8 @@ import requests
 import streamlit as st
 from src.engine import FashionEngine
 from src.driver_service import DriveService
+from src.oauth_helper import UnifiedOAuthHelper
+from src.auth_ui import require_authentication
 from src.api_client import CabideAPIClient
 from src.config import get_settings, Settings
 
@@ -22,29 +24,45 @@ def get_engine(_version="1.3.0-feedback"):
     return FashionEngine()
 
 @st.cache_resource
-def get_drive_manager(_settings: Settings):
+def get_oauth_helper():
+    """Initialize OAuth helper singleton."""
+    return UnifiedOAuthHelper()
+
+@st.cache_resource
+def get_drive_manager(_settings: Settings, _oauth_helper: UnifiedOAuthHelper):
     """
-    Initializes DriveService if credentials exist (works in both local and prod mode).
+    Initializes DriveService using OAuth credentials.
     The underscore prefix tells Streamlit not to hash this object.
     """
-    if _settings.gcp_service_account_json != "{}" and _settings.gdrive_folder_id:
+    if _settings.gdrive_folder_id:
         try:
-            sa_info = json.loads(_settings.gcp_service_account_json)
-            return DriveService(sa_info, _settings.gdrive_folder_id)
+            creds = _oauth_helper.get_credentials()
+            if creds:
+                return DriveService(creds, _settings.gdrive_folder_id)
+            else:
+                print("Warning: GDRIVE_FOLDER_ID set but no OAuth credentials found")
         except Exception as e:
             st.error(f"Failed to initialize Drive Service: {e}")
     return None
 
 # Load Resources
 settings = get_settings()
+oauth_helper = get_oauth_helper()
+
+# Require authentication before proceeding
+require_authentication(oauth_helper)
+
+# Initialize resources with OAuth
 engine = get_engine()
-drive_manager = get_drive_manager(settings)
+drive_manager = get_drive_manager(settings, oauth_helper)
 
 # Initialize API client if backend URL is configured
 api_client = None
 if settings.backend_url:
     try:
-        api_client = CabideAPIClient(settings.backend_url)
+        # Get OAuth access token for API authentication
+        access_token = oauth_helper.get_access_token()
+        api_client = CabideAPIClient(settings.backend_url, access_token=access_token)
         api_status = api_client.health_check()
         st.sidebar.success(f"✅ API Connected: v{api_status.get('version', 'unknown')}")
     except Exception as e:
@@ -237,6 +255,36 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
 
                         if use_api:
                             # API MODE: Call backend
+                            # Save temp files for feedback regeneration
+                            temp_paths = []
+                            for idx, uploaded_file in enumerate(uploaded_files):
+                                temp_name = f"temp_{idx}_{uploaded_file.name}"
+                                with open(temp_name, "wb") as f:
+                                    f.write(uploaded_file.getbuffer())
+                                temp_paths.append(temp_name)
+
+                            # Prepare conjunto metadata (for session state)
+                            conjunto_data = None
+                            if garment_type == "Conjunto":
+                                conjunto_data = {
+                                    "piece1_type": piece1_type,
+                                    "piece2_type": piece2_type,
+                                    "piece3_type": piece3_type
+                                }
+
+                            # Prepare model attributes (for session state)
+                            model_attrs = {
+                                "height": model_height,
+                                "body_type": model_body_type,
+                                "skin_tone": model_skin_tone,
+                                "hair_length": model_hair_length,
+                                "hair_texture": model_hair_texture,
+                                "hair_color": model_hair_color,
+                                "hair_style": model_hair_style
+                            }
+                            # Filter out empty values
+                            model_attrs = {k: v for k, v in model_attrs.items() if v}
+
                             # For now, use first file (multi-file upload needs backend update)
                             uploaded_file = uploaded_files[0]
 
@@ -360,36 +408,6 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                             "selected_act_label": selected_act_label
                         }
 
-                        # --- Actions (Download & Drive) ---
-                        col_down, col_drive = st.columns(2)
-
-                        with col_down:
-                            # Generate filename with metadata
-                            from src.engine import TYPE_NORMALIZATION
-                            normalized_type = TYPE_NORMALIZATION.get(garment_type.lower(), garment_type.lower())
-                            download_filename = f"cabide_{garment_number.strip()}_{normalized_type}.png"
-
-                            st.download_button(
-                                label="💾 Download Image",
-                                data=image_bytes,
-                                file_name=download_filename,
-                                mime="image/png",
-                                use_container_width=True
-                            )
-
-                        with col_drive:
-                            if drive_manager:
-                                if st.button("📤 Save to Store Drive", use_container_width=True):
-                                    with st.spinner("Uploading..."):
-                                        drive_url = drive_manager.upload_file(
-                                            image_bytes,
-                                            download_filename  # Use same filename as download
-                                        )
-                                        st.balloons()
-                                        st.link_button("View on Google Drive", drive_url, use_container_width=True)
-                            else:
-                                st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
-
                     except Exception as e:
                         st.error(f"Engine Error: {e}")
         else:
@@ -405,6 +423,30 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
 
                     if use_api:
                         # API MODE: Call backend
+                        # Save temp files for feedback regeneration
+                        temp_paths = []
+                        for idx, uploaded_file in enumerate(uploaded_files):
+                            temp_name = f"temp_{idx}_{uploaded_file.name}"
+                            with open(temp_name, "wb") as f:
+                                f.write(uploaded_file.getbuffer())
+                            temp_paths.append(temp_name)
+
+                        # Prepare conjunto metadata (for session state)
+                        conjunto_data = None
+
+                        # Prepare model attributes (for session state)
+                        model_attrs = {
+                            "height": model_height,
+                            "body_type": model_body_type,
+                            "skin_tone": model_skin_tone,
+                            "hair_length": model_hair_length,
+                            "hair_texture": model_hair_texture,
+                            "hair_color": model_hair_color,
+                            "hair_style": model_hair_style
+                        }
+                        # Filter out empty values
+                        model_attrs = {k: v for k, v in model_attrs.items() if v}
+
                         # For now, use first file (multi-file upload needs backend update)
                         uploaded_file = uploaded_files[0]
 
@@ -522,62 +564,62 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                         "selected_act_label": selected_act_label
                     }
 
-                    # --- Actions (Download & Drive) ---
-                    col_down, col_drive = st.columns(2)
-
-                    with col_down:
-                        # Generate filename with metadata
-                        from src.engine import TYPE_NORMALIZATION
-                        normalized_type = TYPE_NORMALIZATION.get(garment_type.lower(), garment_type.lower())
-                        download_filename = f"cabide_{garment_number.strip()}_{normalized_type}.png"
-
-                        st.download_button(
-                            label="💾 Download Image",
-                            data=image_bytes,
-                            file_name=download_filename,
-                            mime="image/png",
-                            use_container_width=True
-                        )
-
-                    with col_drive:
-                        if drive_manager:
-                            if st.button("📤 Save to Store Drive", use_container_width=True):
-                                with st.spinner("Uploading..."):
-                                    drive_url = drive_manager.upload_file(
-                                        image_bytes,
-                                        download_filename  # Use same filename as download
-                                    )
-                                    st.balloons()
-                                    st.link_button("View on Google Drive", drive_url, use_container_width=True)
-                        else:
-                            st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
-
                 except Exception as e:
                     st.error(f"Engine Error: {e}")
     else:
         st.error("Por favor, envie pelo menos uma foto da peça.")
 
 # --- FEEDBACK SECTION (Always visible after any generation) ---
-if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes:
+if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes and "last_params" in st.session_state:
     st.divider()
 
     # Display the last generated image persistently
     params = st.session_state.last_params
     st.image(st.session_state.last_image_bytes, caption=f"{params['selected_env_label']} | {params['selected_act_label']}")
 
-    # Download button for current image
+    # Actions: Download & Drive
     from src.engine import TYPE_NORMALIZATION
     normalized_type = TYPE_NORMALIZATION.get(params["garment_type"].lower(), params["garment_type"].lower())
     download_filename = f"cabide_{params['garment_number'].strip()}_{normalized_type}.png"
 
-    st.download_button(
-        label="💾 Download Imagem Atual",
-        data=st.session_state.last_image_bytes,
-        file_name=download_filename,
-        mime="image/png",
-        use_container_width=True
-    )
+    col_down, col_drive = st.columns(2)
 
+    with col_down:
+        st.download_button(
+            label="💾 Download Imagem Atual",
+            data=st.session_state.last_image_bytes,
+            file_name=download_filename,
+            mime="image/png",
+            use_container_width=True
+        )
+
+    with col_drive:
+        if drive_manager:
+            # Check if we have a drive URL in session state for current image
+            drive_url_key = f"drive_url_{download_filename}"
+
+            if drive_url_key in st.session_state:
+                # Already uploaded - show link
+                st.link_button("✅ View on Google Drive", st.session_state[drive_url_key], use_container_width=True)
+            else:
+                # Not uploaded yet - show upload button
+                if st.button("📤 Save to Store Drive", use_container_width=True, key=f"drive_btn_{download_filename}"):
+                    with st.spinner("Uploading..."):
+                        try:
+                            drive_url = drive_manager.upload_file(
+                                st.session_state.last_image_bytes,
+                                download_filename
+                            )
+                            # Store URL in session state
+                            st.session_state[drive_url_key] = drive_url
+                            st.balloons()
+                            st.rerun()  # Rerun to show the link button
+                        except Exception as e:
+                            st.error(f"Upload failed: {e}")
+        else:
+            st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
+
+    st.divider()
     st.subheader("💬 Quer melhorar a imagem?")
 
     feedback_text = st.text_area(

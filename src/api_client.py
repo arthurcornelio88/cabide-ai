@@ -10,16 +10,23 @@ from src.config import get_settings
 class CabideAPIClient:
     """Client for interacting with Cabide AI FastAPI backend."""
 
-    def __init__(self, base_url: Optional[str] = None):
+    def __init__(self, base_url: Optional[str] = None, access_token: Optional[str] = None):
         """
         Initialize API client.
 
         Args:
             base_url: Backend URL. If None, uses BACKEND_URL from settings.
+            access_token: OAuth access token for authentication.
         """
         settings = get_settings()
         self.base_url = base_url or settings.backend_url or "http://localhost:8000"
         self.base_url = self.base_url.rstrip("/")
+        self.access_token = access_token
+
+        # Prepare headers with authentication
+        self.headers = {}
+        if self.access_token:
+            self.headers['Authorization'] = f'Bearer {self.access_token}'
 
     def health_check(self) -> dict:
         """
@@ -31,7 +38,7 @@ class CabideAPIClient:
         Raises:
             requests.RequestException: If request fails
         """
-        response = requests.get(f"{self.base_url}/health", timeout=5)
+        response = requests.get(f"{self.base_url}/health", headers=self.headers, timeout=5)
         response.raise_for_status()
         return response.json()
 
@@ -78,6 +85,7 @@ class CabideAPIClient:
             f"{self.base_url}/generate",
             files=files,
             data=data,
+            headers=self.headers,
             timeout=60  # Gemini can take time
         )
         response.raise_for_status()
