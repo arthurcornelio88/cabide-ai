@@ -14,7 +14,7 @@
 
 # 6 apagar arquivo de upload quando processamento termina
 
-# 7 tipo fisico (caixa optional)
+# [x] 7 tipo fisico (caixa optional)
  - alta, baixa, media
  - magra, normal, cheinha
  - cor de pele : branca, morena, parda, negra, asiatica

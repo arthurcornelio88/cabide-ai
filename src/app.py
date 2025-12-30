@@ -133,8 +133,8 @@ if garment_type == "Conjunto":
         with col3:
             piece3_type = st.selectbox(
                 "Peça Adicional (Opcional)",
-                ["", "Veste", "Écharpe", "Bracelete", "Colar"],
-                help="Veste, acessório ou complemento (opcional)"
+                ["", "Veste", "Sapato", "Écharpe", "Bracelete", "Colar"],
+                help="Veste, sapato, acessório ou complemento (opcional)"
             )
 
 # --- Model Attributes (Optional) ---
@@ -222,7 +222,160 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
             expected_photos = 2 if not piece3_type else 3
             if len(uploaded_files) != expected_photos:
                 st.error(f"⚠️ Por favor, envie exatamente {expected_photos} fotos para o conjunto ({len(uploaded_files)} enviada(s))")
+            else:
+                # Conjunto validation passed - proceed with generation
+                with st.spinner("Banana Pro is generating your image..."):
+                    try:
+                        # Determine mode: API or Direct Engine
+                        use_api = api_client is not None and settings.backend_url
+
+                        if use_api:
+                            # API MODE: Call backend
+                            # For now, use first file (multi-file upload needs backend update)
+                            uploaded_file = uploaded_files[0]
+
+                            # Create BytesIO and ensure it's at position 0
+                            image_buffer = io.BytesIO(uploaded_file.getbuffer())
+                            image_buffer.seek(0)
+
+                            result = api_client.generate_photo(
+                                image_file=image_buffer,
+                                filename=uploaded_file.name,
+                                environment=env_value,
+                                activity=act_value,
+                                garment_number=garment_number.strip(),
+                                garment_type=garment_type,
+                                position=position
+                            )
+
+                            if 'url' in result:
+                                # Production mode: Fetch from URL
+                                response = requests.get(result['url'])
+                                image_bytes = response.content
+                            else:
+                                # Local mode: Use returned bytes
+                                image_bytes = result['image_bytes']
+                        else:
+                            # DIRECT ENGINE MODE (current behavior)
+                            # 1. Handle multiple temp files for the engine
+                            temp_paths = []
+                            for idx, uploaded_file in enumerate(uploaded_files):
+                                temp_name = f"temp_{idx}_{uploaded_file.name}"
+                                with open(temp_name, "wb") as f:
+                                    f.write(uploaded_file.getbuffer())
+
+                                # Convert HEIC to PNG if needed
+                                if uploaded_file.name.lower().endswith(('.heic', '.heif')):
+                                    try:
+                                        from PIL import Image
+                                        from pillow_heif import register_heif_opener
+
+                                        register_heif_opener()
+                                        img = Image.open(temp_name)
+
+                                        # Convert to PNG
+                                        png_name = f"temp_{idx}_converted.png"
+                                        img.save(png_name, format='PNG')
+
+                                        # Remove HEIC and use PNG
+                                        os.remove(temp_name)
+                                        temp_name = png_name
+                                    except Exception as e:
+                                        st.error(f"Failed to convert HEIC image: {e}")
+                                        raise
+
+                                temp_paths.append(temp_name)
+
+                            # 2. Prepare conjunto metadata if applicable
+                            conjunto_data = None
+                            if garment_type == "Conjunto":
+                                conjunto_data = {
+                                    "piece1_type": piece1_type,
+                                    "piece2_type": piece2_type,
+                                    "piece3_type": piece3_type
+                                }
+
+                            # 2.5. Prepare model attributes if provided
+                            model_attrs = {
+                                "height": model_height,
+                                "body_type": model_body_type,
+                                "skin_tone": model_skin_tone,
+                                "hair_length": model_hair_length,
+                                "hair_texture": model_hair_texture,
+                                "hair_color": model_hair_color,
+                                "hair_style": model_hair_style
+                            }
+                            # Filter out empty values
+                            model_attrs = {k: v for k, v in model_attrs.items() if v}
+
+                            # 3. Call Engine (Handles single/list paths and front/back logic)
+                            result = engine.generate_lifestyle_photo(
+                                garment_path=temp_paths,
+                                environment=env_value,
+                                activity=act_value,
+                                garment_number=garment_number.strip(),
+                                garment_type=garment_type,
+                                position=position,
+                                conjunto_pieces=conjunto_data,
+                                model_attributes=model_attrs if model_attrs else None
+                            )
+
+                            # 3. Handle result data for Download/Drive
+                            if isinstance(result, list):
+                                result = result[0]  # Take first if multiple envs
+
+                            if result.startswith("http"):
+                                # Production Mode: Fetch from GCS
+                                response = requests.get(result)
+                                image_bytes = response.content
+                            else:
+                                # Local Mode: Read from disk
+                                with open(result, "rb") as f:
+                                    image_bytes = f.read()
+
+                            # Cleanup temp files
+                            for p in temp_paths:
+                                if os.path.exists(p):
+                                    os.remove(p)
+
+                        # 4. Display Results
+                        st.success("Generation Complete!")
+                        st.image(image_bytes, caption=f"{selected_env_label} | {selected_act_label}")
+
+                        # --- Actions (Download & Drive) ---
+                        col_down, col_drive = st.columns(2)
+
+                        with col_down:
+                            # Generate filename with metadata
+                            from src.engine import TYPE_NORMALIZATION
+                            normalized_type = TYPE_NORMALIZATION.get(garment_type.lower(), garment_type.lower())
+                            download_filename = f"cabide_{garment_number.strip()}_{normalized_type}.png"
+
+                            st.download_button(
+                                label="💾 Download Image",
+                                data=image_bytes,
+                                file_name=download_filename,
+                                mime="image/png",
+                                use_container_width=True
+                            )
+
+                        with col_drive:
+                            if drive_manager:
+                                if st.button("📤 Save to Store Drive", use_container_width=True):
+                                    with st.spinner("Uploading..."):
+                                        drive_url = drive_manager.upload_file(
+                                            image_bytes,
+                                            download_filename  # Use same filename as download
+                                        )
+                                        st.balloons()
+                                        st.link_button("View on Google Drive", drive_url, use_container_width=True)
+                            else:
+                                st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
+
+                    except Exception as e:
+                        st.error(f"Engine Error: {e}")
         else:
+            # Non-conjunto items
             # Optional: Show info if user selected "Ambos" but only uploaded 1 photo
             if position == "Ambos" and len(uploaded_files) == 1:
                 st.info("ℹ️ Você selecionou 'Ambos' mas enviou apenas 1 foto. Vamos usar a mesma foto para frente e costas.")
@@ -289,14 +442,8 @@ if st.button("✨ Generate Professional Photo", use_container_width=True):
 
                             temp_paths.append(temp_name)
 
-                        # 2. Prepare conjunto metadata if applicable
+                        # 2. Prepare conjunto metadata if applicable (will be None for non-conjunto)
                         conjunto_data = None
-                        if garment_type == "Conjunto":
-                            conjunto_data = {
-                                "piece1_type": piece1_type,
-                                "piece2_type": piece2_type,
-                                "piece3_type": piece3_type
-                            }
 
                         # 2.5. Prepare model attributes if provided
                         model_attrs = {
