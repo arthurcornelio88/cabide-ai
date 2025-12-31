@@ -33,16 +33,4 @@
  - Backend: Cloud Run (auto deploy via GitHub Actions)
  - Frontend: Streamlit Cloud (auto deploy on push)
 
-# 9 a fazer
-
-17 vestido cidade posando
-32 vestido festa posando
-33 vestido praia caminhando
-16 vestido festa posando
-6 vestido cidade tomando café
-3 vestido cidade posando
-19 vestido cidade usando celular
-95 vestido festa posando
-98 vestido parque caminhando
-101 vestido cidade caminhando
-30 vestido cidade usando telefone
+- criacao de service account no infra. 

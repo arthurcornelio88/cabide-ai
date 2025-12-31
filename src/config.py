@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     # Google Drive Integration
     gdrive_folder_id: str = Field(default="", validation_alias="GDRIVE_FOLDER_ID")
     gcp_service_account_json: str = Field(
-        default="{}", validation_alias="GCP_SERVICE_ACCOUNT_JSON"
-    )
+        default="", validation_alias="GCP_SERVICE_ACCOUNT_JSON"
+    )  # Optional - uses Application Default Credentials if not provided
     gdrive_user_email: str = Field(
         default="", validation_alias="GDRIVE_USER_EMAIL"
     )  # Email to impersonate
@@ -86,11 +86,15 @@ class Settings(BaseSettings):
     @classmethod
     def validate_json(cls, v: str) -> str:
         """Ensure the JSON is parseable if not empty"""
-        if v and v != "{}":
-            try:
-                json.loads(v)
-            except json.JSONDecodeError:
-                raise ValueError("gcp_service_account_json must be valid JSON")
+        # Allow empty string (will use Application Default Credentials)
+        if not v or v == "{}":
+            return v
+
+        # If provided, must be valid JSON
+        try:
+            json.loads(v)
+        except json.JSONDecodeError:
+            raise ValueError("gcp_service_account_json must be valid JSON or empty")
         return v
 
     def get_service_account_info(self) -> Optional[dict]:
