@@ -42,18 +42,28 @@ jobs:
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:latest
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:${{ github.sha }}
 
-      # 5. Deploy Backend to Cloud Run (São Paulo)
+      # 5. Prepare env vars file (to avoid JSON parsing issues)
+      - name: Create env vars file
+        run: |
+          cat > /tmp/env.yaml << EOF
+          GEMINI_API_KEY: "${{ secrets.GEMINI_API_KEY }}"
+          GDRIVE_FOLDER_ID: "${{ secrets.GDRIVE_FOLDER_ID }}"
+          EOF
+
+      # 6. Deploy Backend to Cloud Run (São Paulo)
       - name: Deploy Backend to Cloud Run
         id: deploy-backend
-        uses: 'google-github-actions/deploy-cloudrun@v2'
-        with:
-          service: 'cabide-api'
-          image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:latest'
-          region: ${{ env.REGION }}
-          env_vars: |
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            GCP_SERVICE_ACCOUNT_JSON=${{ secrets.GCP_SERVICE_ACCOUNT }}
-            GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          gcloud run deploy cabide-api \
+            --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:latest \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --set-env-vars=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}",GDRIVE_FOLDER_ID="${{ secrets.GDRIVE_FOLDER_ID }}" \
+            --set-env-vars=GCP_SERVICE_ACCOUNT_JSON='${{ secrets.GCP_SERVICE_ACCOUNT }}' \
+            --format=json \
+            --quiet | jq -r '.status.url' > /tmp/backend-url.txt
+          echo "url=$(cat /tmp/backend-url.txt)" >> $GITHUB_OUTPUT
 
       # 6. Output Backend URL (for Streamlit Cloud configuration)
       - name: Show Backend URL
