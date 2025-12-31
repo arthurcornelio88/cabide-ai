@@ -6,6 +6,7 @@ Handles user authentication flow and token management for both Drive and API acc
 import json
 import os
 import pickle
+import tempfile
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -14,6 +15,12 @@ import google.auth.transport.requests
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
+
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
 
 
 class UnifiedOAuthHelper:
@@ -36,7 +43,28 @@ class UnifiedOAuthHelper:
         Args:
             client_secrets_file: Path to OAuth client secrets JSON file
         """
-        self.client_secrets_file = client_secrets_file
+        # Try to get client secrets from Streamlit Cloud secrets first
+        using_secrets = False
+        if HAS_STREAMLIT:
+            try:
+                if hasattr(st, 'secrets') and 'CLIENT_SECRET_JSON' in st.secrets:
+                    # Create a temporary file with the secrets content
+                    client_secret_data = json.loads(st.secrets['CLIENT_SECRET_JSON'])
+
+                    # Write to a temporary file that Flow can read
+                    self._temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+                    json.dump(client_secret_data, self._temp_file)
+                    self._temp_file.close()
+                    self.client_secrets_file = self._temp_file.name
+                    using_secrets = True
+            except Exception:
+                # If secrets access fails, fall back to local file
+                pass
+
+        if not using_secrets:
+            # Use local file path
+            self.client_secrets_file = client_secrets_file
+            self._temp_file = None
 
     def get_credentials(self) -> Optional[Credentials]:
         """
@@ -199,3 +227,11 @@ class UnifiedOAuthHelper:
         """Remove stored credentials."""
         if self.TOKEN_FILE.exists():
             os.remove(self.TOKEN_FILE)
+
+    def __del__(self):
+        """Cleanup temporary file if created."""
+        if hasattr(self, '_temp_file') and self._temp_file is not None:
+            try:
+                os.unlink(self._temp_file.name)
+            except Exception:
+                pass  # Ignore errors during cleanup

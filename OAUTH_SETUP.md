@@ -77,3 +77,37 @@ Na primeira vez, vai aparecer uma UI de login. Siga as instruções!
   - Cada pessoa que usar a app precisa fazer login uma vez
   - O token fica salvo localmente
   - Válido por ~1 semana, depois renova automaticamente
+
+## Passo 4: Deploy no Streamlit Cloud
+
+Para fazer deploy no Streamlit Cloud, você precisa configurar o `client_secret.json` como um **Secret**:
+
+1. **No Streamlit Cloud Dashboard**:
+   - Vá em: **Your app** > **Settings** > **Secrets**
+
+2. **Adicione o secret `CLIENT_SECRET_JSON`**:
+   - Cole o conteúdo completo do arquivo `client_secret.json` como uma string
+   - O formato deve ser:
+   ```toml
+   CLIENT_SECRET_JSON = '{"installed":{"client_id":"...","project_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_secret":"...","redirect_uris":["http://localhost"]}}'
+   ```
+
+3. **Exemplo de configuração**:
+   ```toml
+   # Em Streamlit Cloud > Settings > Secrets
+   CLIENT_SECRET_JSON = '{"installed":{"client_id":"YOUR-CLIENT-ID.apps.googleusercontent.com","project_id":"your-project-id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"YOUR-CLIENT-SECRET","redirect_uris":["http://localhost"]}}'
+   ```
+
+   **Dica**: Copie o conteúdo do seu arquivo `client_secret.json` local e cole no formato acima.
+
+4. **Salve e reinicie o app**
+
+⚠️ **IMPORTANTE**:
+- Copie o JSON completo em uma única linha
+- Certifique-se de que está entre aspas simples `'...'`
+- Não adicione quebras de linha no meio do JSON
+
+**Como funciona**:
+- Localmente: O código lê o arquivo `client_secret.json`
+- No Streamlit Cloud: O código lê de `st.secrets['CLIENT_SECRET_JSON']`
+- A detecção é automática! 🎉
