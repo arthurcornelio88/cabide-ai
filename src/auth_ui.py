@@ -65,13 +65,18 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
         st.markdown("3. **Autorize** o acesso ao Cabide AI")
 
         # Different instructions based on redirect URI
-        if st.session_state.oauth_redirect_uri and "oauth/callback" in st.session_state.oauth_redirect_uri:
+        if (
+            st.session_state.oauth_redirect_uri
+            and "oauth/callback" in st.session_state.oauth_redirect_uri
+        ):
             st.markdown("4. Você verá uma página com um **código de autorização**")
             st.markdown("5. **Copie o código** e cole abaixo:")
             placeholder_text = "4/0ATX87lO2i..."
             input_label = "Cole o código aqui:"
         else:
-            st.markdown("4. Você será redirecionado para uma página de erro (isso é normal!)")
+            st.markdown(
+                "4. Você será redirecionado para uma página de erro (isso é normal!)"
+            )
             st.markdown("5. **Copie a URL completa** da barra de endereço")
             st.markdown("6. **Cole abaixo**:")
             placeholder_text = "http://localhost:8080/?code=4/0A...&scope=..."
@@ -111,7 +116,9 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
                             code = user_input.strip()
 
                         # Create new flow and exchange code
-                        _, flow = oauth_helper.get_auth_url(redirect_uri=st.session_state.oauth_redirect_uri)
+                        _, flow = oauth_helper.get_auth_url(
+                            redirect_uri=st.session_state.oauth_redirect_uri
+                        )
                         oauth_helper.save_credentials_from_code(flow, code)
 
                         # Clear session state

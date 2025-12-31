@@ -29,8 +29,8 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["src*"]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "ruff>=0.3.0",
     "pre-commit>=3.6.0",
     "pytest>=8.0.0",

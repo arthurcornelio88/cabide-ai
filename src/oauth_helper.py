@@ -18,6 +18,7 @@ from google_auth_oauthlib.flow import Flow
 
 try:
     import streamlit as st
+
     HAS_STREAMLIT = True
 except ImportError:
     HAS_STREAMLIT = False
@@ -47,12 +48,14 @@ class UnifiedOAuthHelper:
         using_secrets = False
         if HAS_STREAMLIT:
             try:
-                if hasattr(st, 'secrets') and 'CLIENT_SECRET_JSON' in st.secrets:
+                if hasattr(st, "secrets") and "CLIENT_SECRET_JSON" in st.secrets:
                     # Create a temporary file with the secrets content
-                    client_secret_data = json.loads(st.secrets['CLIENT_SECRET_JSON'])
+                    client_secret_data = json.loads(st.secrets["CLIENT_SECRET_JSON"])
 
                     # Write to a temporary file that Flow can read
-                    self._temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+                    self._temp_file = tempfile.NamedTemporaryFile(
+                        mode="w", suffix=".json", delete=False
+                    )
                     json.dump(client_secret_data, self._temp_file)
                     self._temp_file.close()
                     self.client_secrets_file = self._temp_file.name
@@ -231,7 +234,7 @@ class UnifiedOAuthHelper:
 
     def __del__(self):
         """Cleanup temporary file if created."""
-        if hasattr(self, '_temp_file') and self._temp_file is not None:
+        if hasattr(self, "_temp_file") and self._temp_file is not None:
             try:
                 os.unlink(self._temp_file.name)
             except Exception:

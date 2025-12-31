@@ -333,7 +333,9 @@ async def health_check(settings: Settings = Depends(get_settings)):
 
 
 @app.get("/oauth/callback")
-async def oauth_callback(code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+async def oauth_callback(
+    code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None
+):
     """
     OAuth callback endpoint for Google authentication.
     Redirects user with code to complete authentication in Streamlit app.
@@ -351,7 +353,7 @@ async def oauth_callback(code: Optional[str] = None, state: Optional[str] = None
                 </body>
             </html>
             """,
-            status_code=400
+            status_code=400,
         )
 
     if not code:
@@ -364,7 +366,7 @@ async def oauth_callback(code: Optional[str] = None, state: Optional[str] = None
                 </body>
             </html>
             """,
-            status_code=400
+            status_code=400,
         )
 
     # Show success page with code that user can copy
