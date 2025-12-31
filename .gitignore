@@ -4,6 +4,7 @@
 .env.*.local
 gcp-service-account.json
 client_secret.json
+streamlit-sa-key.json
 
 # OAuth credentials (NEVER commit these!)
 auth_token.pickle
