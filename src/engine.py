@@ -224,7 +224,11 @@ class FashionEngine:
 
         # Add user feedback if provided (for regeneration/improvement)
         if feedback:
-            feedback_instruction = f"\n\nUSER FEEDBACK FOR IMPROVEMENT: {feedback}\nPlease incorporate this feedback while maintaining all other quality requirements and garment fidelity."
+            if conjunto_pieces:
+                # For conjunto with feedback, emphasize it's ONE person wearing ALL pieces
+                feedback_instruction = f"\n\nUSER FEEDBACK FOR IMPROVEMENT: {feedback}\nIMPORTANT: Generate ONE SINGLE PERSON wearing ALL the garment pieces shown (upper piece, lower piece, and shoes if provided) in a complete outfit. Incorporate the feedback while maintaining garment fidelity and quality."
+            else:
+                feedback_instruction = f"\n\nUSER FEEDBACK FOR IMPROVEMENT: {feedback}\nPlease incorporate this feedback while maintaining all other quality requirements and garment fidelity."
             final_prompt = final_prompt + feedback_instruction
 
         # Multimodal call
