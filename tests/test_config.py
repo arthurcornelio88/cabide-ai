@@ -15,10 +15,11 @@ def test_settings_defaults(test_env_vars):
 
 
 def test_settings_validation_storage_mode(test_env_vars, monkeypatch):
-    """Test storage mode validation."""
+    """Test storage mode validation - always returns 'local'."""
     monkeypatch.setenv("STORAGE_MODE", "invalid")
-    with pytest.raises(ValueError, match="storage_mode must be"):
-        Settings()
+    settings = Settings()
+    # Storage mode is forced to 'local' by validator
+    assert settings.storage_mode == "local"
 
 
 def test_settings_validation_json(test_env_vars, monkeypatch):
@@ -29,7 +30,7 @@ def test_settings_validation_json(test_env_vars, monkeypatch):
 
 
 def test_settings_from_env(test_env_vars, monkeypatch):
-    """Test loading from environment variables."""
-    monkeypatch.setenv("GCS_BUCKET_NAME", "custom-bucket")
+    """Test loading Google Drive folder ID from environment."""
+    monkeypatch.setenv("GDRIVE_FOLDER_ID", "custom-folder-id-123")
     settings = Settings()
-    assert settings.gcs_bucket_name == "custom-bucket"
+    assert settings.gdrive_folder_id == "custom-folder-id-123"

@@ -1,93 +1,41 @@
-# 👗 Cabide AI: Professional Fashion Catalog Generator
+![act-logo](https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png)
 
-A high-fidelity fashion image generation pipeline designed for professional clothing stores. This project uses **Gemini 3 Pro Image (Nano Banana Pro)** to transform simple product photos into professional editorial content.
+# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
 
-## 🌍 Hybrid Architecture (France 🇫🇷 / Brazil 🇧🇷)
-- **Engine:** Python-based multimodal processing.
-- **Backend:** FastAPI with Pydantic V2 validation.
-- **Frontend:** Streamlit optimized for mobile/desktop usage in Brazil.
-- **Storage:** Hybrid logic (Local for Dev / GCS in `southamerica-east1` for Prod).
-- **Drive Integration:** Automatic backup to Google Drive via Service Account.
+> "Think globally, `act` locally"
 
-## 🛠 Tech Stack
-- **Language:** Python 3.11+
-- **Dependency Manager:** `uv`
-- **Linting:** `Ruff`
-- **Image Support:** PNG, JPG, JPEG, HEIC, HEIF (auto-converted)
-- **Infrastructure:** Docker, Google Cloud Run, GCS, Artifact Registry.
-- **CI/CD:** GitHub Actions.
+Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why would you want to do this? Two reasons:
 
-## 🚀 Quick Start (Local Dev)
+- **Fast Feedback** - Rather than having to commit/push every time you want to test out the changes you are making to your `.github/workflows/` files (or for any changes to embedded GitHub actions), you can use `act` to run the actions locally. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
+- **Local Task Runner** - I love [make](<https://en.wikipedia.org/wiki/Make_(software)>). However, I also hate repeating myself. With `act`, you can use the GitHub Actions defined in your `.github/workflows/` to replace your `Makefile`!
 
-1. **Install Dependencies:**
-```bash
-# Install package in editable mode (required for imports to work)
-pip install -e .
+> [!TIP]
+> **Now Manage and Run Act Directly From VS Code!**<br/>
+> Check out the [GitHub Local Actions](https://sanjulaganepola.github.io/github-local-actions-docs/) Visual Studio Code extension which allows you to leverage the power of `act` to run and test workflows locally without leaving your editor.
 
-# Or using uv
-uv pip install -e .
-```
+# How Does It Work?
 
-2. **Configure Environment:**
-Create a `.env` file:
-```env
-GEMINI_API_KEY=your_key
-STORAGE_MODE=local
-GCS_BUCKET_NAME=<your-bucket-name>
+When you run `act` it reads in your GitHub Actions from `.github/workflows/` and determines the set of actions that need to be run. It uses the Docker API to either pull or build the necessary images, as defined in your workflow files and finally determines the execution path based on the dependencies that were defined. Once it has the execution path, it then uses the Docker API to run containers for each action based on the images prepared earlier. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#file-systems) are all configured to match what GitHub provides.
 
-```
+Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
 
-3. **Run Tests:**
-```bash
-pytest tests/ -v --cov=src
-```
+![Demo](https://raw.githubusercontent.com/wiki/nektos/act/quickstart/act-quickstart-2.gif)
 
-4. **Run Batch Processor:**
-```bash
-python -m src.main --env forest
-```
+# Act User Guide
 
-5. **Run UI:**
-```bash
-streamlit run src/app.py
-```
+Please look at the [act user guide](https://nektosact.com) for more documentation.
 
-> **Note:** See [SETUP.md](SETUP.md) for detailed setup instructions and troubleshooting.
+# Support
 
-## 📦 Deployment to Brazil
+Need help? Ask in [discussions](https://github.com/nektos/act/discussions)!
 
-The deployment is automated via GitHub Actions.
+# Contributing
 
-1. **GitHub Secrets Required:**
-* `GCP_PROJECT_ID`: Your Google Cloud Project ID.
-* `GCP_SA_KEY`: JSON Key of a Service Account with Storage/Run/Registry permissions.
-* `GEMINI_API_KEY`: Your Google AI Studio API Key (Paid Tier).
-* `GCP_SERVICE_ACCOUNT_JSON`: Minified JSON of the Service Account (for Drive/GCS access in production).
-* `GDRIVE_FOLDER_ID`: Google Drive folder ID for automatic backup uploads (optional but recommended).
+Want to contribute to act? Awesome! Check out the [contributing guidelines](CONTRIBUTING.md) to get involved.
 
+## Manually building from source
 
-2. **Push to Main:**
-```bash
-git add .
-git commit -m "Deploying to Brazil region"
-git push origin main
-
-```
-
-## 📂 Project Structure
-
-* `src/config.py`: Unified configuration management with Pydantic v2 settings.
-* `src/engine.py`: Core AI logic & multimodal garment handling.
-* `src/api.py`: FastAPI implementation.
-* `src/api_client.py`: HTTP client for frontend-to-backend communication.
-* `src/app.py`: Streamlit UI for the end-user (supports both direct engine and API modes).
-* `src/driver_service.py`: Google Drive upload management.
-* `PROMPT_TEMPLATES.md`: Source of truth for AI instructions.
-
-## 📝 TODOs & Future Improvements
-
-* [x] Complexify parameters for list of garments (front/back).
-* [x] Implement "vestidodefesta" specific environment logic.
-* [x] Integrate Google Drive Service Account upload.
-* [ ] Implement OAuth2 for multi-user Drive access.
-* [ ] Add Video generation support via Veo 3.1.
+- Install Go tools 1.20+ - (<https://golang.org/doc/install>)
+- Clone this repo `git clone git@github.com:nektos/act.git`
+- Run unit tests with `make test`
+- Build and install: `make install`

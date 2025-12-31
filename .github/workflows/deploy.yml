@@ -21,7 +21,7 @@ jobs:
       - name: Google Auth
         uses: 'google-github-actions/auth@v2'
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
 
       # 2. Set up Cloud SDK
       - name: 'Set up Cloud SDK'
@@ -52,7 +52,7 @@ jobs:
           region: ${{ env.REGION }}
           env_vars: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            GCP_SERVICE_ACCOUNT_JSON=${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
+            GCP_SERVICE_ACCOUNT_JSON=${{ secrets.GCP_SERVICE_ACCOUNT }}
             GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}
 
       # 6. Output Backend URL (for Streamlit Cloud configuration)
