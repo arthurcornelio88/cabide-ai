@@ -28,13 +28,14 @@
 
 6. **Crie o OAuth Client ID**:
    - Volte para **Credentials** > **Create Credentials** > **OAuth client ID**
-   - Application type: **Desktop app** ⚠️ IMPORTANTE: tem que ser Desktop app!
-   - Name: `Cabide AI Desktop`
-   - **Authorized domains**: deixe vazio (ou adicione só `localhost` sem http://)
+   - Application type: **Web application** ⚠️ IMPORTANTE: Use Web application para funcionar no Streamlit Cloud!
+   - Name: `Cabide AI Web`
+   - **Authorized redirect URIs**: Adicione os seguintes URIs:
+     - `https://cabide-api-678226806758.southamerica-east1.run.app/oauth/callback` (para produção)
+     - `http://localhost:8080` (para desenvolvimento local)
    - Clique em **Create**
 
-   ✅ Pronto! O tipo "Desktop app" já permite usar `http://localhost` automaticamente.
-   ❌ NÃO precisa adicionar redirect URIs manualmente!
+   ✅ Pronto! Agora funciona tanto localmente quanto no Streamlit Cloud.
 
 7. **Baixe o arquivo JSON**:
    - Clique no botão **Download JSON** (ícone de download)
@@ -69,7 +70,7 @@ Na primeira vez, vai aparecer uma UI de login. Siga as instruções!
   - OAuth: Usa a quota do usuário logado ✅
 
 - **Segurança**:
-  - `client_secret.json`: Pode commitar no git (é público em desktop apps)
+  - `client_secret.json`: ⚠️ NUNCA commite no git (contém client secret que deve ser mantido privado)
   - `auth_token.pickle`: NUNCA commite (contém token de acesso)
   - `user_info.json`: NUNCA commite (contém dados pessoais)
 
@@ -78,23 +79,7 @@ Na primeira vez, vai aparecer uma UI de login. Siga as instruções!
   - O token fica salvo localmente
   - Válido por ~1 semana, depois renova automaticamente
 
-## Passo 4: Configurar Redirect URI no Google Console (para Streamlit Cloud)
-
-Antes de fazer deploy no Streamlit Cloud, você precisa adicionar o redirect URI do backend:
-
-1. **Acesse o Google Cloud Console**: https://console.cloud.google.com
-2. **Vá em APIs & Services > Credentials**
-3. **Clique no seu OAuth 2.0 Client ID** (Cabide AI Desktop)
-4. **Em "Authorized redirect URIs", adicione**:
-   ```
-   https://cabide-api-678226806758.southamerica-east1.run.app/oauth/callback
-   ```
-   (Substitua pela URL do seu backend Cloud Run)
-5. **Clique em "Save"**
-
-⚠️ **IMPORTANTE**: O redirect URI deve ser exatamente a URL do seu backend + `/oauth/callback`
-
-## Passo 5: Deploy no Streamlit Cloud
+## Passo 4: Deploy no Streamlit Cloud
 
 Para fazer deploy no Streamlit Cloud, você precisa configurar o `client_secret.json` como um **Secret**:
 
@@ -103,26 +88,28 @@ Para fazer deploy no Streamlit Cloud, você precisa configurar o `client_secret.
 
 2. **Adicione o secret `CLIENT_SECRET_JSON`**:
    - Cole o conteúdo completo do arquivo `client_secret.json` como uma string
-   - O formato deve ser:
+   - O formato deve ser (note que agora é `"web"` em vez de `"installed"`):
    ```toml
-   CLIENT_SECRET_JSON = '{"installed":{"client_id":"...","project_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_secret":"...","redirect_uris":["http://localhost"]}}'
+   CLIENT_SECRET_JSON = '{"web":{"client_id":"...","project_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_secret":"...","redirect_uris":["https://...",""http://localhost:8080"]}}'
    ```
 
 3. **Exemplo de configuração**:
    ```toml
    # Em Streamlit Cloud > Settings > Secrets
-   CLIENT_SECRET_JSON = '{"installed":{"client_id":"YOUR-CLIENT-ID.apps.googleusercontent.com","project_id":"your-project-id","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"YOUR-CLIENT-SECRET","redirect_uris":["http://localhost"]}}'
+   CLIENT_SECRET_JSON = '{"web":{"client_id":"YOUR-CLIENT-ID.apps.googleusercontent.com","project_id":"gen-lang-client-0410722440","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"YOUR-CLIENT-SECRET","redirect_uris":["https://cabide-api-678226806758.southamerica-east1.run.app/oauth/callback","http://localhost:8080"]}}'
    ```
 
-   **Dica**: Copie o conteúdo do seu arquivo `client_secret.json` local e cole no formato acima.
+   **Dica**: Abra o arquivo `client_secret.json` local, copie todo o conteúdo, coloque entre aspas simples.
 
 4. **Adicione também o `BACKEND_URL`**:
    ```toml
    BACKEND_URL = "https://cabide-api-678226806758.southamerica-east1.run.app"
    ```
-   (Use a URL do seu backend Cloud Run, sem a barra final)
+   (Use a URL do seu backend Cloud Run, **sem** a barra final)
 
-5. **Salve e reinicie o app**
+5. **Adicione outros secrets necessários** (GEMINI_API_KEY, GDRIVE_FOLDER_ID, etc.)
+
+6. **Salve e reinicie o app**
 
 ⚠️ **IMPORTANTE**:
 - Copie o JSON completo em uma única linha

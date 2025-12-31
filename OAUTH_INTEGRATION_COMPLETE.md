@@ -9,10 +9,12 @@ The unified OAuth system is now fully integrated! Here's what's been done:
   - Token storage and automatic refresh
   - User info fetching from Google
   - Access token extraction for API calls
+  - Supports both Streamlit Cloud (via `st.secrets`) and local development (via file)
 
 ### 2. Streamlit UI ✅
 - **[src/auth_ui.py](src/auth_ui.py)**: Beautiful login/logout interface
-  - `show_login_ui()`: OAuth flow with manual code entry
+  - `show_login_ui()`: OAuth flow with manual code entry or URL paste
+  - Adaptive UI: shows code input when using backend, URL input for localhost
   - `show_user_info()`: User profile in sidebar with logout button
   - `require_authentication()`: Guard function that blocks app until login
 
@@ -26,6 +28,7 @@ The unified OAuth system is now fully integrated! Here's what's been done:
 - **[src/api.py](src/api.py)**: FastAPI endpoints now verify tokens
   - Line 38-90: `verify_oauth_token()` dependency validates tokens with Google
   - Line 148: `/generate` endpoint requires valid OAuth token
+  - Line 335-426: `/oauth/callback` endpoint displays authorization code for Streamlit Cloud
 
 ### 5. API Client ✅
 - **[src/api_client.py](src/api_client.py)**: Sends auth headers
@@ -86,8 +89,11 @@ Follow the guide in [OAUTH_SETUP.md](OAUTH_SETUP.md):
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
 2. Enable Google Drive API and Google+ API
 3. Configure OAuth Consent Screen
-4. Create OAuth Client ID (Desktop app)
-5. Download `client_secret.json` to project root
+4. Create OAuth Client ID (**Web application**, not Desktop app)
+5. Add redirect URIs:
+   - `https://cabide-api-678226806758.southamerica-east1.run.app/oauth/callback`
+   - `http://localhost:8080`
+6. Download `client_secret.json` to project root
 
 ### Step 2: Test the System
 
@@ -133,12 +139,12 @@ cabide-ai/
 
 ## Security Notes
 
-### ✅ Safe to Commit
-- `client_secret.json`: Public in desktop OAuth apps
-
 ### ❌ NEVER Commit
+- `client_secret.json`: Contains client secret (private for web apps)
 - `auth_token.pickle`: Contains access token
 - `user_info.json`: Contains personal data
+
+**Note**: Web application OAuth requires keeping the client secret private, unlike desktop apps.
 
 ### 🔒 How It's Secure
 
