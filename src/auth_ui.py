@@ -89,7 +89,7 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
 
                             # Create new flow and exchange code
                             _, flow = oauth_helper.get_auth_url()
-                            creds = oauth_helper.save_credentials_from_code(flow, code)
+                            oauth_helper.save_credentials_from_code(flow, code)
 
                             # Clear session state
                             st.session_state.oauth_auth_url = None
