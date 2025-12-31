@@ -78,7 +78,23 @@ Na primeira vez, vai aparecer uma UI de login. Siga as instruções!
   - O token fica salvo localmente
   - Válido por ~1 semana, depois renova automaticamente
 
-## Passo 4: Deploy no Streamlit Cloud
+## Passo 4: Configurar Redirect URI no Google Console (para Streamlit Cloud)
+
+Antes de fazer deploy no Streamlit Cloud, você precisa adicionar o redirect URI do backend:
+
+1. **Acesse o Google Cloud Console**: https://console.cloud.google.com
+2. **Vá em APIs & Services > Credentials**
+3. **Clique no seu OAuth 2.0 Client ID** (Cabide AI Desktop)
+4. **Em "Authorized redirect URIs", adicione**:
+   ```
+   https://cabide-api-678226806758.southamerica-east1.run.app/oauth/callback
+   ```
+   (Substitua pela URL do seu backend Cloud Run)
+5. **Clique em "Save"**
+
+⚠️ **IMPORTANTE**: O redirect URI deve ser exatamente a URL do seu backend + `/oauth/callback`
+
+## Passo 5: Deploy no Streamlit Cloud
 
 Para fazer deploy no Streamlit Cloud, você precisa configurar o `client_secret.json` como um **Secret**:
 
@@ -100,7 +116,13 @@ Para fazer deploy no Streamlit Cloud, você precisa configurar o `client_secret.
 
    **Dica**: Copie o conteúdo do seu arquivo `client_secret.json` local e cole no formato acima.
 
-4. **Salve e reinicie o app**
+4. **Adicione também o `BACKEND_URL`**:
+   ```toml
+   BACKEND_URL = "https://cabide-api-678226806758.southamerica-east1.run.app"
+   ```
+   (Use a URL do seu backend Cloud Run, sem a barra final)
+
+5. **Salve e reinicie o app**
 
 ⚠️ **IMPORTANTE**:
 - Copie o JSON completo em uma única linha

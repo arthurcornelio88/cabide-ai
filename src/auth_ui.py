@@ -5,6 +5,7 @@ Provides login, logout, and user info display.
 
 import streamlit as st
 
+from src.config import get_settings
 from src.oauth_helper import UnifiedOAuthHelper
 
 
@@ -27,6 +28,8 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
     # Initialize session state for auth URL
     if "oauth_auth_url" not in st.session_state:
         st.session_state.oauth_auth_url = None
+    if "oauth_redirect_uri" not in st.session_state:
+        st.session_state.oauth_redirect_uri = None
 
     # Step 1: Generate and show auth URL
     if st.session_state.oauth_auth_url is None:
@@ -34,9 +37,16 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
             "🔑 Gerar Link de Login", use_container_width=True, type="primary"
         ):
             try:
-                # Generate auth URL without starting server
-                auth_url, _ = oauth_helper.get_auth_url()
+                # Get backend URL from settings
+                settings = get_settings()
+                redirect_uri = None
+                if settings.backend_url:
+                    redirect_uri = f"{settings.backend_url}/oauth/callback"
+
+                # Generate auth URL with appropriate redirect
+                auth_url, _ = oauth_helper.get_auth_url(redirect_uri=redirect_uri)
                 st.session_state.oauth_auth_url = auth_url
+                st.session_state.oauth_redirect_uri = redirect_uri
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Erro ao gerar link: {e}")
@@ -53,58 +63,73 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
 
         st.markdown("2. **Faça login** com sua conta Google")
         st.markdown("3. **Autorize** o acesso ao Cabide AI")
-        st.markdown("4. Você será redirecionado para `http://localhost:8080`")
-        st.markdown(
-            "5. **Copie a URL completa** da barra de endereço (começa com `http://localhost:8080/?code=...`)"
-        )
-        st.markdown("6. **Cole abaixo**:")
 
-        # Input for redirect URL
-        redirect_url = st.text_input(
-            "Cole a URL completa aqui:",
-            placeholder="http://localhost:8080/?code=4/0A...&scope=...",
-            key="redirect_url_input",
+        # Different instructions based on redirect URI
+        if st.session_state.oauth_redirect_uri and "oauth/callback" in st.session_state.oauth_redirect_uri:
+            st.markdown("4. Você verá uma página com um **código de autorização**")
+            st.markdown("5. **Copie o código** e cole abaixo:")
+            placeholder_text = "4/0ATX87lO2i..."
+            input_label = "Cole o código aqui:"
+        else:
+            st.markdown("4. Você será redirecionado para uma página de erro (isso é normal!)")
+            st.markdown("5. **Copie a URL completa** da barra de endereço")
+            st.markdown("6. **Cole abaixo**:")
+            placeholder_text = "http://localhost:8080/?code=4/0A...&scope=..."
+            input_label = "Cole a URL completa aqui:"
+
+        # Input for code or URL
+        user_input = st.text_input(
+            input_label,
+            placeholder=placeholder_text,
+            key="auth_input",
         )
 
         col1, col2 = st.columns(2)
 
         with col1:
             if st.button(
-                "✅ Confirmar", use_container_width=True, disabled=not redirect_url
+                "✅ Confirmar", use_container_width=True, disabled=not user_input
             ):
                 try:
                     with st.spinner("Autenticando..."):
-                        # Extract code from URL
-                        import urllib.parse
+                        # Check if input is a URL or just a code
+                        if user_input.startswith("http"):
+                            # Extract code from URL
+                            import urllib.parse
 
-                        parsed = urllib.parse.urlparse(redirect_url)
-                        params = urllib.parse.parse_qs(parsed.query)
+                            parsed = urllib.parse.urlparse(user_input)
+                            params = urllib.parse.parse_qs(parsed.query)
 
-                        if "code" not in params:
-                            st.error(
-                                "❌ URL inválida. Certifique-se de copiar a URL completa!"
-                            )
-                        else:
+                            if "code" not in params:
+                                st.error(
+                                    "❌ URL inválida. Certifique-se de copiar a URL completa!"
+                                )
+                                return
                             code = params["code"][0]
+                        else:
+                            # Assume it's just the code
+                            code = user_input.strip()
 
-                            # Create new flow and exchange code
-                            _, flow = oauth_helper.get_auth_url()
-                            oauth_helper.save_credentials_from_code(flow, code)
+                        # Create new flow and exchange code
+                        _, flow = oauth_helper.get_auth_url(redirect_uri=st.session_state.oauth_redirect_uri)
+                        oauth_helper.save_credentials_from_code(flow, code)
 
-                            # Clear session state
-                            st.session_state.oauth_auth_url = None
+                        # Clear session state
+                        st.session_state.oauth_auth_url = None
+                        st.session_state.oauth_redirect_uri = None
 
-                            st.success("✅ Login realizado com sucesso!")
-                            st.balloons()
-                            st.rerun()
+                        st.success("✅ Login realizado com sucesso!")
+                        st.balloons()
+                        st.rerun()
 
                 except Exception as e:
                     st.error(f"❌ Erro ao fazer login: {e}")
-                    st.error("Verifique se você copiou a URL completa corretamente.")
+                    st.error("Verifique se você copiou o código/URL corretamente.")
 
         with col2:
             if st.button("❌ Cancelar", use_container_width=True):
                 st.session_state.oauth_auth_url = None
+                st.session_state.oauth_redirect_uri = None
                 st.rerun()
 
     return False

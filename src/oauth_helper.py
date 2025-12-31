@@ -130,17 +130,18 @@ class UnifiedOAuthHelper:
 
         return user_info
 
-    def get_auth_url(self, port: int = 8080) -> tuple:
+    def get_auth_url(self, redirect_uri: Optional[str] = None) -> tuple:
         """
         Get OAuth authorization URL for user to visit.
 
         Args:
-            port: Local port for redirect URI (default 8080)
+            redirect_uri: Custom redirect URI. If None, uses http://localhost:8080
 
         Returns:
             tuple: (authorization_url, flow_state)
         """
-        redirect_uri = f"http://localhost:{port}"
+        if redirect_uri is None:
+            redirect_uri = "http://localhost:8080"
 
         flow = Flow.from_client_secrets_file(
             self.client_secrets_file, scopes=self.SCOPES, redirect_uri=redirect_uri

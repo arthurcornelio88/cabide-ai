@@ -330,3 +330,97 @@ async def health_check(settings: Settings = Depends(get_settings)):
         model="gemini-3-pro-image-preview",
         storage_mode=settings.storage_mode,
     )
+
+
+@app.get("/oauth/callback")
+async def oauth_callback(code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    """
+    OAuth callback endpoint for Google authentication.
+    Redirects user with code to complete authentication in Streamlit app.
+    """
+    from fastapi.responses import HTMLResponse
+
+    if error:
+        return HTMLResponse(
+            content=f"""
+            <html>
+                <body>
+                    <h1>❌ Erro na autenticação</h1>
+                    <p>Erro: {error}</p>
+                    <p>Feche esta janela e tente novamente.</p>
+                </body>
+            </html>
+            """,
+            status_code=400
+        )
+
+    if not code:
+        return HTMLResponse(
+            content="""
+            <html>
+                <body>
+                    <h1>❌ Código de autorização não encontrado</h1>
+                    <p>Feche esta janela e tente novamente.</p>
+                </body>
+            </html>
+            """,
+            status_code=400
+        )
+
+    # Show success page with code that user can copy
+    return HTMLResponse(
+        content=f"""
+        <html>
+            <head>
+                <title>✅ Autenticação Bem-Sucedida</title>
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        max-width: 800px;
+                        margin: 50px auto;
+                        padding: 20px;
+                        text-align: center;
+                    }}
+                    .code-box {{
+                        background: #f5f5f5;
+                        padding: 20px;
+                        border-radius: 8px;
+                        margin: 20px 0;
+                        word-break: break-all;
+                        font-family: monospace;
+                        font-size: 14px;
+                    }}
+                    button {{
+                        background: #4CAF50;
+                        color: white;
+                        padding: 15px 32px;
+                        font-size: 16px;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    }}
+                    button:hover {{
+                        background: #45a049;
+                    }}
+                </style>
+            </head>
+            <body>
+                <h1>✅ Autenticação Bem-Sucedida!</h1>
+                <p>Copie o código abaixo e cole no app Cabide AI:</p>
+                <div class="code-box" id="authCode">{code}</div>
+                <button onclick="copyCode()">📋 Copiar Código</button>
+                <p style="margin-top: 30px; color: #666;">Você pode fechar esta janela após copiar o código.</p>
+                <script>
+                    function copyCode() {{
+                        const code = document.getElementById('authCode').textContent;
+                        navigator.clipboard.writeText(code).then(function() {{
+                            alert('✅ Código copiado!');
+                        }}, function() {{
+                            alert('❌ Erro ao copiar. Copie manualmente.');
+                        }});
+                    }}
+                </script>
+            </body>
+        </html>
+        """
+    )
