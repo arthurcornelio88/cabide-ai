@@ -1,4 +1,4 @@
-name: Fashion Pipeline CD - Brazil Region
+name: Cabide AI Backend CD - Brazil Region
 
 on:
   push:
@@ -9,8 +9,6 @@ env:
   # Optimized for Brazil (São Paulo Region)
   REGION: southamerica-east1
   REPO_NAME: cabide-repo
-  # GCS Bucket for permanent storage of generated catalog
-  GCS_BUCKET: cabide-catalog-br
 
 jobs:
   deploy:
@@ -44,18 +42,7 @@ jobs:
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:latest
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:${{ github.sha }}
 
-      # 5. Build & Push Frontend (UI)
-      - name: Build & Push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile.frontend
-          push: true
-          tags: |
-            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/frontend:latest
-            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/frontend:${{ github.sha }}
-
-      # 6. Deploy Backend to Cloud Run (São Paulo)
+      # 5. Deploy Backend to Cloud Run (São Paulo)
       - name: Deploy Backend to Cloud Run
         id: deploy-backend
         uses: 'google-github-actions/deploy-cloudrun@v2'
@@ -65,23 +52,9 @@ jobs:
           region: ${{ env.REGION }}
           env_vars: |
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            STORAGE_MODE=prod
-            GCS_BUCKET_NAME=${{ env.GCS_BUCKET }}
             GCP_SERVICE_ACCOUNT_JSON=${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
             GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}
 
-      # 7. Deploy Frontend to Cloud Run (São Paulo)
-      - name: Deploy Frontend to Cloud Run
-        uses: 'google-github-actions/deploy-cloudrun@v2'
-        with:
-          service: 'cabide-ui'
-          image: '${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/frontend:latest'
-          region: ${{ env.REGION }}
-          flags: '--allow-unauthenticated'
-          env_vars: |
-            BACKEND_URL=${{ steps.deploy-backend.outputs.url }}
-            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-            STORAGE_MODE=prod
-            GCS_BUCKET_NAME=${{ env.GCS_BUCKET }}
-            GCP_SERVICE_ACCOUNT_JSON=${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
-            GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}
+      # 6. Output Backend URL (for Streamlit Cloud configuration)
+      - name: Show Backend URL
+        run: echo "Backend deployed at ${{ steps.deploy-backend.outputs.url }}"

@@ -66,32 +66,51 @@ jobs:
         # Ensures consistent styling across the engine, api, and main scripts
         run: uv run ruff format . --check
 
-  # Job 3: Docker Build Verification
+  # Job 3: Security Checks
+  security:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install security tools
+        run: |
+          uv pip install --system bandit[toml] safety
+
+      - name: Run Bandit Security Scan
+        run: bandit -r src/ -f json -o bandit-report.json || true
+
+      - name: Show Bandit Results
+        run: bandit -r src/ || true
+
+      - name: Run Safety Check
+        run: safety check --json || true
+
+  # Job 4: Docker Build Verification
   docker-smoke-test:
-    needs: [test, lint]
+    needs: [test, lint, security]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        # Optimized for multi-platform builds if you decide to scale to ARM (e.g., AWS Graviton)
         uses: docker/setup-buildx-action@v3
 
       - name: Build Backend Image
-        # Verifies the FastAPI + Nano Banana Pro environment
+        # Verifies the FastAPI backend builds correctly
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.backend
           push: false
           tags: cabide-ai-api:latest
-
-      - name: Build Frontend Image
-        # Verifies the Streamlit UI configuration
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile.frontend
-          push: false
-          tags: cabide-ai-ui:latest

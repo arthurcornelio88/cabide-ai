@@ -26,10 +26,12 @@
 
 # 9 [x] securiser api e drive com oauth
 
-# [ ] 10 desativar buckets - ficar somente no drive
+# [x] 10 desativar buckets - ficar somente no drive
  - 📍 Region: Brazil (southamerica-east1) | Storage: LOCAL : desnecessario
 
-# [ ] 11 deploy in streamlit cloud / cloudrun !
+# [x] 11 deploy in streamlit cloud / cloudrun !
+ - Backend: Cloud Run (auto deploy via GitHub Actions)
+ - Frontend: Streamlit Cloud (auto deploy on push)
 
 # 9 a fazer
 

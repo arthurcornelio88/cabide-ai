@@ -1,38 +1,82 @@
 #!/bin/bash
 
+# ========================================
+# Cabide AI Infrastructure Setup Script
+# ========================================
+# This script sets up the complete GCP infrastructure for Cabide AI:
+# - Artifact Registry for Docker images
+# - Cloud Run service for the backend API
+# - Required APIs and permissions
+# ========================================
+
+set -e  # Exit on error
+
 # Configuration
-PROJECT_ID=$(gcloud config get-value project)
+PROJECT_ID="gen-lang-client-0410722440"
 REGION="southamerica-east1"
-BUCKET_NAME="cabide-catalog-br"
 REPO_NAME="cabide-repo"
+SERVICE_NAME="cabide-api"
 
-echo "🚀 Starting Infrastructure Setup in $REGION..."
+echo "🚀 Starting Infrastructure Setup for Cabide AI..."
+echo "📍 Project: $PROJECT_ID"
+echo "📍 Region: $REGION (São Paulo, Brazil)"
+echo ""
 
-# 1. Enable Required APIs
-echo "Enabling APIs..."
+# 1. Set active project
+echo "1️⃣ Setting active GCP project..."
+gcloud config set project $PROJECT_ID
+
+# 2. Enable Required APIs
+echo ""
+echo "2️⃣ Enabling required Google Cloud APIs..."
 gcloud services enable \
     artifactregistry.googleapis.com \
     run.googleapis.com \
-    storage.googleapis.com \
-    drive.googleapis.com
+    drive.googleapis.com \
+    aiplatform.googleapis.com
 
-# 2. Create Artifact Registry for Docker Images
-echo "Creating Artifact Registry..."
-gcloud artifacts repositories create $REPO_NAME \
-    --repository-format=docker \
-    --location=$REGION \
-    --description="Docker repository for Cabide AI"
+echo "✅ APIs enabled successfully"
 
-# 3. Create Cloud Storage Bucket in São Paulo
-echo "Creating GCS Bucket in Brazil..."
-gcloud storage buckets create gs://$BUCKET_NAME \
-    --location=$REGION \
-    --uniform-bucket-level-access
+# 3. Create Artifact Registry for Docker Images
+echo ""
+echo "3️⃣ Creating Artifact Registry repository..."
+if gcloud artifacts repositories describe $REPO_NAME --location=$REGION &>/dev/null; then
+    echo "ℹ️  Repository '$REPO_NAME' already exists, skipping creation"
+else
+    gcloud artifacts repositories create $REPO_NAME \
+        --repository-format=docker \
+        --location=$REGION \
+        --description="Docker repository for Cabide AI Backend"
+    echo "✅ Artifact Registry created"
+fi
 
-# 4. Set Bucket Permissions (Optional: Public-read if needed for the app)
-# gcloud storage buckets add-iam-policy-binding gs://$BUCKET_NAME \
-#     --member="allUsers" --role="roles/storage.objectViewer"
+# 4. Create Cloud Run service (initial placeholder)
+echo ""
+echo "4️⃣ Creating Cloud Run service..."
+if gcloud run services describe $SERVICE_NAME --region=$REGION &>/dev/null; then
+    echo "ℹ️  Service '$SERVICE_NAME' already exists, skipping creation"
+else
+    gcloud run deploy $SERVICE_NAME \
+        --image=us-docker.pkg.dev/cloudrun/container/hello \
+        --region=$REGION \
+        --platform=managed \
+        --allow-unauthenticated \
+        --quiet
+    echo "✅ Cloud Run service created (placeholder image)"
+fi
 
-echo "✅ Infrastructure Ready!"
-echo "Bucket: gs://$BUCKET_NAME"
-echo "Registry: $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
+# 5. Summary
+echo ""
+echo "🎉 Infrastructure setup complete!"
+echo ""
+echo "📦 Artifact Registry:"
+echo "   $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME"
+echo ""
+echo "🚀 Cloud Run Service:"
+echo "   https://console.cloud.google.com/run/detail/$REGION/$SERVICE_NAME/metrics?project=$PROJECT_ID"
+echo ""
+echo "📝 Next steps:"
+echo "   1. Update GitHub Secrets with PROJECT_ID: $PROJECT_ID"
+echo "   2. Push to 'main' branch to trigger automatic deployment"
+echo "   3. Configure Streamlit Cloud with backend URL"
+echo ""
