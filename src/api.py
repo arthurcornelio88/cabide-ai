@@ -138,12 +138,15 @@ def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | No
 
 @app.post("/generate")
 async def generate_model_photo(
-    file: Annotated[UploadFile, File(description="Garment photo")],
+    files: Annotated[list[UploadFile], File(description="Garment photo(s)")],
     env: Annotated[str, Form()] = "street",
     garment_number: Annotated[str | None, Form()] = None,
     garment_type: Annotated[str | None, Form()] = None,
     position: Annotated[str | None, Form()] = None,
     feedback: Annotated[str | None, Form()] = None,
+    piece1_type: Annotated[str | None, Form()] = None,
+    piece2_type: Annotated[str | None, Form()] = None,
+    piece3_type: Annotated[str | None, Form()] = None,
     settings: Settings = Depends(get_settings),
     user_info: dict = Depends(verify_oauth_token)
 ):
@@ -163,15 +166,15 @@ async def generate_model_photo(
     Raises:
         HTTPException: On validation or processing errors
     """
-    logger.info(f"Received request: env={env}, garment_number={garment_number}, garment_type={garment_type}, position={position}, feedback={feedback}, filename={file.filename}")
+    logger.info(f"Received request: env={env}, garment_number={garment_number}, garment_type={garment_type}, position={position}, feedback={feedback}, files={len(files)}")
 
-    # Validate file type
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Filename is required")
+    # Validate we have at least one file
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="At least one file is required")
 
-    # Extract garment_number and garment_type from filename if not provided
+    # Extract garment_number and garment_type from first filename if not provided
     if not garment_number or not garment_type:
-        extracted_number, extracted_type = _extract_metadata_from_filename(file.filename)
+        extracted_number, extracted_type = _extract_metadata_from_filename(files[0].filename)
         garment_number = garment_number or extracted_number
         garment_type = garment_type or extracted_type
 
@@ -182,63 +185,85 @@ async def generate_model_photo(
             detail="garment_number and garment_type are required. Either provide them explicitly or use a filename with format: <number>_<type>_<rest>.ext (e.g., 42_pantalon_20251229.HEIC)"
         )
 
-    file_ext = os.path.splitext(file.filename)[1].lower()
-    if file_ext not in ['.png', '.jpg', '.jpeg', '.heic', '.heif']:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {file_ext}. Use PNG, JPG, JPEG, HEIC, or HEIF."
-        )
-
     job_id = str(uuid.uuid4())
-    temp_path = os.path.join(settings.temp_upload_dir, f"{job_id}{file_ext}")
+    temp_paths = []
 
     try:
-        # Save upload to temp
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Process all uploaded files
+        for idx, file in enumerate(files):
+            if not file.filename:
+                raise HTTPException(status_code=400, detail=f"Filename is required for file {idx}")
 
-        # Convert HEIC to PNG if needed
-        if file_ext in ['.heic', '.heif']:
+            file_ext = os.path.splitext(file.filename)[1].lower()
+            if file_ext not in ['.png', '.jpg', '.jpeg', '.heic', '.heif']:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported file type: {file_ext}. Use PNG, JPG, JPEG, HEIC, or HEIF."
+                )
+
+            temp_path = os.path.join(settings.temp_upload_dir, f"{job_id}_{idx}{file_ext}")
+
+            # Save upload to temp
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            # Convert HEIC to PNG if needed
+            if file_ext in ['.heic', '.heif']:
+                try:
+                    from PIL import Image
+                    from pillow_heif import register_heif_opener
+
+                    register_heif_opener()
+                    img = Image.open(temp_path)
+
+                    # Convert to PNG for processing
+                    png_path = os.path.join(settings.temp_upload_dir, f"{job_id}_{idx}.png")
+                    img.save(png_path, format='PNG')
+
+                    # Remove original HEIC file and use PNG
+                    os.remove(temp_path)
+                    temp_path = png_path
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Failed to convert HEIC image: {str(e)}"
+                    )
+
+            # Validate file is a real image
             try:
                 from PIL import Image
-                from pillow_heif import register_heif_opener
-
-                register_heif_opener()
-                img = Image.open(temp_path)
-
-                # Convert to PNG for processing
-                png_path = os.path.join(settings.temp_upload_dir, f"{job_id}.png")
-                img.save(png_path, format='PNG')
-
-                # Remove original HEIC file and use PNG
-                os.remove(temp_path)
-                temp_path = png_path
+                with Image.open(temp_path) as img:
+                    img.verify()  # Verify it's a valid image
+                # Note: verify() invalidates the image, so we don't keep it open
             except Exception as e:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Failed to convert HEIC image: {str(e)}"
+                    detail=f"Invalid image file: {str(e)}"
                 )
 
-        # Validate file is a real image
-        try:
-            from PIL import Image
-            with Image.open(temp_path) as img:
-                img.verify()  # Verify it's a valid image
-            # Note: verify() invalidates the image, so we don't keep it open
-        except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid image file: {str(e)}"
-            )
+            temp_paths.append(temp_path)
+
+        # For conjunto, prepare metadata
+        conjunto_pieces = None
+        if garment_type == "Conjunto":
+            conjunto_pieces = {
+                "piece1_type": piece1_type,
+                "piece2_type": piece2_type,
+                "piece3_type": piece3_type
+            }
 
         # Generate using Engine
+        # If single file, pass as string; if multiple, pass as list
+        input_paths = temp_paths[0] if len(temp_paths) == 1 else temp_paths
+
         result_path_or_url = engine.generate_lifestyle_photo(
-            temp_path,
+            input_paths,
             environment=env,
             activity="posing for a lifestyle catalog",
             garment_number=garment_number,
             garment_type=garment_type,
             position=position,
+            conjunto_pieces=conjunto_pieces,
             feedback=feedback
         )
 
@@ -273,8 +298,10 @@ async def generate_model_photo(
             detail=f"Engine Error: {str(e)}"
         )
     finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        # Clean up all temp files
+        for temp_path in temp_paths:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check(settings: Settings = Depends(get_settings)):

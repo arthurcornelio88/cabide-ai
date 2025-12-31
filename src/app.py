@@ -100,7 +100,7 @@ with st.expander("🎨 Scene Customization", expanded=True):
             "Tomando Café (Coffee)": "holding a coffee",
             "Posando (Posing)": "posing elegantly",
             "No Celular (On Phone)": "checking phone",
-            "Fazendo Apresentação (Presenting)": "giving a presentation",
+            "Fazendo Apresentação (Presenting)": "standing and presenting to an audience with confident body language",
             "Atendendo Cliente (Attending Client)": "attending to a client"
         }
         selected_act_label = st.selectbox("Model Activity", list(activity_labels.keys()))
@@ -285,21 +285,23 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                             # Filter out empty values
                             model_attrs = {k: v for k, v in model_attrs.items() if v}
 
-                            # For now, use first file (multi-file upload needs backend update)
-                            uploaded_file = uploaded_files[0]
-
-                            # Create BytesIO and ensure it's at position 0
-                            image_buffer = io.BytesIO(uploaded_file.getbuffer())
-                            image_buffer.seek(0)
+                            # Prepare all files for API
+                            image_files = []
+                            for uploaded_file in uploaded_files:
+                                image_buffer = io.BytesIO(uploaded_file.getbuffer())
+                                image_buffer.seek(0)
+                                image_files.append((uploaded_file.name, image_buffer))
 
                             result = api_client.generate_photo(
-                                image_file=image_buffer,
-                                filename=uploaded_file.name,
+                                image_files=image_files,
                                 environment=env_value,
                                 activity=act_value,
                                 garment_number=garment_number.strip(),
                                 garment_type=garment_type,
-                                position=position
+                                position=position,
+                                piece1_type=piece1_type if garment_type == "Conjunto" else None,
+                                piece2_type=piece2_type if garment_type == "Conjunto" else None,
+                                piece3_type=piece3_type if garment_type == "Conjunto" and piece3_type else None
                             )
 
                             if 'url' in result:
@@ -447,16 +449,15 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                         # Filter out empty values
                         model_attrs = {k: v for k, v in model_attrs.items() if v}
 
-                        # For now, use first file (multi-file upload needs backend update)
-                        uploaded_file = uploaded_files[0]
-
-                        # Create BytesIO and ensure it's at position 0
-                        image_buffer = io.BytesIO(uploaded_file.getbuffer())
-                        image_buffer.seek(0)
+                        # Prepare all files for API
+                        image_files = []
+                        for uploaded_file in uploaded_files:
+                            image_buffer = io.BytesIO(uploaded_file.getbuffer())
+                            image_buffer.seek(0)
+                            image_files.append((uploaded_file.name, image_buffer))
 
                         result = api_client.generate_photo(
-                            image_file=image_buffer,
-                            filename=uploaded_file.name,
+                            image_files=image_files,
                             environment=env_value,
                             activity=act_value,
                             garment_number=garment_number.strip(),
@@ -642,21 +643,29 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
                 use_api = api_client is not None and settings.backend_url
 
                 if use_api:
-                    # API MODE: Need to read temp file and send via API
-                    # For now, send first file (multi-file feedback support needs backend update)
-                    with open(temp_paths[0], "rb") as f:
-                        image_buffer = io.BytesIO(f.read())
-                    image_buffer.seek(0)
+                    # API MODE: Need to read temp files and send via API
+                    # Prepare all files for regeneration
+                    image_files = []
+                    for temp_path in temp_paths:
+                        with open(temp_path, "rb") as f:
+                            image_buffer = io.BytesIO(f.read())
+                            image_buffer.seek(0)
+                            image_files.append((os.path.basename(temp_path), image_buffer))
+
+                    # Get conjunto data if applicable
+                    conjunto_data = params.get("conjunto_data")
 
                     result = api_client.generate_photo(
-                        image_file=image_buffer,
-                        filename=os.path.basename(temp_paths[0]),
+                        image_files=image_files,
                         environment=params["env_value"],
                         activity=params["act_value"],
                         garment_number=params["garment_number"].strip(),
                         garment_type=params["garment_type"],
                         position=params["position"],
-                        feedback=feedback_text
+                        feedback=feedback_text,
+                        piece1_type=conjunto_data.get("piece1_type") if conjunto_data else None,
+                        piece2_type=conjunto_data.get("piece2_type") if conjunto_data else None,
+                        piece3_type=conjunto_data.get("piece3_type") if conjunto_data else None
                     )
 
                     if 'url' in result:

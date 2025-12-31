@@ -44,23 +44,31 @@ class CabideAPIClient:
 
     def generate_photo(
         self,
-        image_file: BinaryIO,
-        filename: str,
+        image_files: list[tuple[str, BinaryIO]] | tuple[str, BinaryIO],
         environment: str = "street",
         activity: str = "posing for a lifestyle catalog",
         garment_number: str = None,
         garment_type: str = None,
         position: str = None,
-        feedback: str = None
+        feedback: str = None,
+        piece1_type: str = None,
+        piece2_type: str = None,
+        piece3_type: str = None
     ) -> dict:
         """
         Generate lifestyle photo via backend API.
 
         Args:
-            image_file: File-like object containing image bytes
-            filename: Original filename
+            image_files: List of (filename, file_object) tuples or single tuple
             environment: Scene environment
             activity: Model activity (currently ignored by backend, reserved)
+            garment_number: Garment number
+            garment_type: Garment type
+            position: Photo position (front/back)
+            feedback: User feedback for regeneration
+            piece1_type: For conjunto - upper piece type
+            piece2_type: For conjunto - lower piece type
+            piece3_type: For conjunto - additional piece type (optional)
 
         Returns:
             dict with 'url' (in prod mode) or 'image_bytes' (in local mode)
@@ -68,7 +76,13 @@ class CabideAPIClient:
         Raises:
             requests.RequestException: If request fails
         """
-        files = {'file': (filename, image_file, 'image/png')}
+        # Handle both single file and multiple files
+        if not isinstance(image_files, list):
+            image_files = [image_files]
+
+        # Prepare files for upload
+        files = [('files', (filename, file_obj, 'image/png')) for filename, file_obj in image_files]
+
         data = {'env': environment}
 
         # Add metadata if provided
@@ -80,13 +94,19 @@ class CabideAPIClient:
             data['position'] = position
         if feedback:
             data['feedback'] = feedback
+        if piece1_type:
+            data['piece1_type'] = piece1_type
+        if piece2_type:
+            data['piece2_type'] = piece2_type
+        if piece3_type:
+            data['piece3_type'] = piece3_type
 
         response = requests.post(
             f"{self.base_url}/generate",
             files=files,
             data=data,
             headers=self.headers,
-            timeout=60  # Gemini can take time
+            timeout=180  # 3 minutes - Gemini can take time, especially for conjuntos
         )
         response.raise_for_status()
 
