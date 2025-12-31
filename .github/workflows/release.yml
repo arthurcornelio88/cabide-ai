@@ -92,8 +92,8 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          IMAGE_URL=southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-ai/backend:${VERSION}
-          IMAGE_LATEST=southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-ai/backend:latest
+          IMAGE_URL=southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-repo/backend:${VERSION}
+          IMAGE_LATEST=southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-repo/backend:latest
 
           docker build -f Dockerfile.backend -t ${IMAGE_URL} -t ${IMAGE_LATEST} .
           docker push ${IMAGE_URL}
@@ -103,7 +103,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           gcloud run deploy cabide-api \
-            --image southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-ai/backend:${VERSION} \
+            --image southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-repo/backend:${VERSION} \
             --region southamerica-east1 \
             --platform managed \
             --allow-unauthenticated \

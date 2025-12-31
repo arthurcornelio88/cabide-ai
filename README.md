@@ -59,15 +59,28 @@ See [Environment Variables Guide](#-environment-variables) for detailed configur
 
 #### 3. Set Up OAuth (Required for Google Drive)
 
-Download OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+**Create OAuth 2.0 Credentials:**
 
-1. Create OAuth 2.0 Client ID (Web application type)
-2. Add authorized redirect URIs:
-   - `http://localhost:8080` (for local development)
-   - `https://your-backend.run.app/oauth/callback` (for production)
-3. Download JSON and save as `client_secret.json` in project root
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Enable required APIs:
+   - Google Drive API
+   - Google+ API (for user info)
+3. Configure OAuth Consent Screen:
+   - User Type: External
+   - App name: `Cabide AI`
+   - Add scopes: `drive.file`, `userinfo.email`, `userinfo.profile`
+   - Add test users (your email and users who will access the app)
+4. Create OAuth Client ID:
+   - Application type: **Web application** (important!)
+   - Name: `Cabide AI Web`
+   - Authorized redirect URIs:
+     - `http://localhost:8080` (for local development)
+     - `https://your-backend.run.app/oauth/callback` (for production)
+5. Download JSON and save as `client_secret.json` in project root
 
-See [OAUTH_SETUP.md](OAUTH_SETUP.md) for detailed OAuth setup instructions.
+**For Streamlit Cloud deployment:**
+- Add the entire content of `client_secret.json` as a secret named `CLIENT_SECRET_JSON`
+- Format: Single-line JSON string (see [Streamlit Cloud section](#2-configure-secrets))
 
 #### 4. Run Locally
 
@@ -205,6 +218,84 @@ https://your-app-name.streamlit.app
 | `GEMINI_API_KEY` | ✅ Yes | Gemini API key |
 | `GDRIVE_FOLDER_ID` | No | Google Drive folder ID |
 
+## 🛠️ Utility Scripts
+
+The project includes helpful scripts in the `scripts/` directory:
+
+### `scripts/setup_brazil_infra.sh`
+
+Sets up complete GCP infrastructure optimized for Brazil (São Paulo region).
+
+**What it does:**
+- Enables required Google Cloud APIs (Cloud Run, Artifact Registry)
+- Creates Artifact Registry repository for Docker images
+- Deploys initial Cloud Run service with proper configuration
+- Sets up IAM permissions for public OAuth callback access
+- Configures environment variables
+
+**Usage:**
+```bash
+# Make sure you're authenticated with GCP
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# Run the script
+bash scripts/setup_brazil_infra.sh
+```
+
+**Requirements:**
+- `gcloud` CLI installed
+- Active GCP project with billing enabled
+- Service account JSON file: `gcp-service-account.json`
+
+### `scripts/sync-secrets.sh`
+
+Synchronizes environment variables from `.env` to GitHub repository secrets.
+
+**What it does:**
+- Reads variables from your local `.env` file
+- Uploads them as GitHub Secrets using `gh` CLI
+- Handles both string values and JSON file contents
+- Useful for keeping CI/CD secrets in sync
+
+**Usage:**
+```bash
+# Make sure GitHub CLI is authenticated
+gh auth login
+
+# Run the script
+bash scripts/sync-secrets.sh
+```
+
+**Requirements:**
+- `gh` CLI installed ([installation guide](https://cli.github.com/))
+- `.env` file with required variables
+- `gcp-service-account.json` file (for GCP_SERVICE_ACCOUNT secret)
+
+### `scripts/create-release.sh`
+
+Creates a new semantic version release with automatic version bumping.
+
+**What it does:**
+- Validates semantic versioning format (MAJOR.MINOR.PATCH)
+- Updates version in `pyproject.toml` and `src/config.py`
+- Creates annotated git tag
+- Provides instructions for pushing and triggering deployment
+
+**Usage:**
+```bash
+# Create a new release
+./scripts/create-release.sh 1.2.0 "Add new features and improvements"
+
+# Push to trigger GitHub Actions release workflow
+git push origin main && git push origin v1.2.0
+```
+
+**What happens after push:**
+- GitHub Actions creates a release with changelog
+- Builds and pushes Docker image with version tag
+- Deploys backend to Cloud Run with version label
+
 ## 🧪 Testing
 
 ```bash
@@ -212,7 +303,8 @@ https://your-app-name.streamlit.app
 pytest tests/ -v --cov=src --cov-report=term-missing
 
 # Run specific test file
-pytest tests/test_engine.py -v
+pytest tests/test_api.py -v
+pytest tests/test_config.py -v
 
 # Run linting
 uv run ruff check .
@@ -252,14 +344,16 @@ cabide-ai/
 │   └── config.py           # Centralized configuration (Pydantic)
 ├── tests/
 │   ├── test_api.py         # API endpoint tests
-│   ├── test_engine.py      # AI engine tests
-│   └── test_config.py      # Configuration tests
+│   ├── test_config.py      # Configuration tests
+│   └── conftest.py         # Pytest fixtures
 ├── scripts/
-│   ├── setup_brazil_infra.sh  # GCP infrastructure setup
-│   └── sync-secrets.sh        # GitHub secrets synchronization
+│   ├── setup_brazil_infra.sh   # GCP infrastructure setup
+│   ├── sync-secrets.sh         # GitHub secrets synchronization
+│   └── create-release.sh       # Release version management
 ├── .github/workflows/
 │   ├── ci.yml              # Tests, linting, security scanning
-│   └── deploy.yml          # Cloud Run deployment
+│   ├── deploy.yml          # Cloud Run deployment
+│   └── release.yml         # Automated releases with tags
 ├── Dockerfile.backend      # Backend container image
 ├── Dockerfile.frontend     # Frontend container image (Docker Compose)
 ├── docker-compose.yml      # Local development with Docker
@@ -380,7 +474,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-For issues and questions:
-- Open an issue on GitHub
-- Check [OAUTH_SETUP.md](OAUTH_SETUP.md) for authentication problems
-- Review Cloud Run logs: `gcloud run logs read cabide-api --region=southamerica-east1`
+### Common Issues
+
+**OAuth Authentication Problems:**
+- Ensure `client_secret.json` is in project root (or `CLIENT_SECRET_JSON` in Streamlit secrets)
+- Verify redirect URIs match exactly in Google Cloud Console
+- Check that test users are added in OAuth Consent Screen
+- Confirm scopes include: `drive.file`, `userinfo.email`, `userinfo.profile`
+
+**Deployment Issues:**
+- Verify all GitHub Secrets are configured: `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT`, `GEMINI_API_KEY`
+- Check Cloud Run logs for errors: `gcloud run logs read cabide-api --region=southamerica-east1`
+- Ensure backend has public access for OAuth callback: `gcloud run services add-iam-policy-binding cabide-api --region=southamerica-east1 --member="allUsers" --role="roles/run.invoker"`
+
+**Local Development:**
+- Make sure `.env` file exists with required variables
+- Verify `gcp-service-account.json` is present for Google Drive integration
+- Check that all dependencies are installed: `uv sync`
+
+### Getting Help
+
+- 📝 Open an [issue on GitHub](https://github.com/arthurcornelio88/cabide-ai/issues)
+- 📖 Review the [OAuth Setup section](#3-set-up-oauth-required-for-google-drive)
+- 🛠️ Check the [Utility Scripts section](#%EF%B8%8F-utility-scripts) for deployment tools
+- 📊 Monitor Cloud Run metrics in [GCP Console](https://console.cloud.google.com/run)
