@@ -34,6 +34,7 @@ class UnifiedOAuthHelper:
         "https://www.googleapis.com/auth/userinfo.profile",
         "openid",
     ]
+    # Fallback for local development (when Streamlit is not available)
     TOKEN_FILE = Path("auth_token.pickle")
     USER_INFO_FILE = Path("user_info.json")
 
@@ -44,6 +45,18 @@ class UnifiedOAuthHelper:
         Args:
             client_secrets_file: Path to OAuth client secrets JSON file
         """
+        # SECURITY: Clean up any existing credential files on Streamlit Cloud
+        # This prevents credentials from being shared between users
+        if HAS_STREAMLIT and hasattr(st, "secrets"):
+            try:
+                # Remove old files that might exist from previous sessions
+                if self.TOKEN_FILE.exists():
+                    os.remove(self.TOKEN_FILE)
+                if self.USER_INFO_FILE.exists():
+                    os.remove(self.USER_INFO_FILE)
+            except Exception:
+                pass  # Ignore errors during cleanup
+
         # Try to get client secrets from Streamlit Cloud secrets first
         using_secrets = False
         if HAS_STREAMLIT:
@@ -78,18 +91,27 @@ class UnifiedOAuthHelper:
         """
         creds = None
 
-        # Load existing token if available
-        if self.TOKEN_FILE.exists():
-            with open(self.TOKEN_FILE, "rb") as token:
-                creds = pickle.load(token)
+        # Use session_state in Streamlit Cloud, fallback to file storage locally
+        if HAS_STREAMLIT and hasattr(st, "session_state"):
+            # Check session state first (isolated per user session)
+            if "oauth_credentials" in st.session_state:
+                creds = st.session_state.oauth_credentials
+        else:
+            # Fallback to file storage for local development
+            if self.TOKEN_FILE.exists():
+                with open(self.TOKEN_FILE, "rb") as token:
+                    creds = pickle.load(token)
 
         # If credentials are invalid or don't exist, refresh or get new ones
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
                 # Save refreshed credentials
-                with open(self.TOKEN_FILE, "wb") as token:
-                    pickle.dump(creds, token)
+                if HAS_STREAMLIT and hasattr(st, "session_state"):
+                    st.session_state.oauth_credentials = creds
+                else:
+                    with open(self.TOKEN_FILE, "wb") as token:
+                        pickle.dump(creds, token)
             except google.auth.exceptions.RefreshError:
                 # Token refresh failed - user needs to re-authenticate
                 return None
@@ -103,9 +125,14 @@ class UnifiedOAuthHelper:
         Returns:
             Dict with user info (email, name, picture) or None
         """
-        if self.USER_INFO_FILE.exists():
-            with open(self.USER_INFO_FILE, "r") as f:
-                return json.load(f)
+        # Use session_state in Streamlit Cloud, fallback to file storage locally
+        if HAS_STREAMLIT and hasattr(st, "session_state"):
+            return st.session_state.get("oauth_user_info")
+        else:
+            # Fallback to file storage for local development
+            if self.USER_INFO_FILE.exists():
+                with open(self.USER_INFO_FILE, "r") as f:
+                    return json.load(f)
         return None
 
     def fetch_and_save_user_info(self, creds: Credentials) -> Dict:
@@ -127,9 +154,12 @@ class UnifiedOAuthHelper:
         response.raise_for_status()
         user_info = response.json()
 
-        # Save user info
-        with open(self.USER_INFO_FILE, "w") as f:
-            json.dump(user_info, f, indent=2)
+        # Save user info - use session_state in Streamlit, file storage locally
+        if HAS_STREAMLIT and hasattr(st, "session_state"):
+            st.session_state.oauth_user_info = user_info
+        else:
+            with open(self.USER_INFO_FILE, "w") as f:
+                json.dump(user_info, f, indent=2)
 
         return user_info
 
@@ -172,9 +202,12 @@ class UnifiedOAuthHelper:
         flow.fetch_token(code=code)
         creds = flow.credentials
 
-        # Save credentials for future use
-        with open(self.TOKEN_FILE, "wb") as token:
-            pickle.dump(creds, token)
+        # Save credentials - use session_state in Streamlit, file storage locally
+        if HAS_STREAMLIT and hasattr(st, "session_state"):
+            st.session_state.oauth_credentials = creds
+        else:
+            with open(self.TOKEN_FILE, "wb") as token:
+                pickle.dump(creds, token)
 
         # Fetch and save user info
         self.fetch_and_save_user_info(creds)
@@ -203,9 +236,12 @@ class UnifiedOAuthHelper:
             port=port, access_type="offline", prompt="consent"
         )
 
-        # Save credentials for future use
-        with open(self.TOKEN_FILE, "wb") as token:
-            pickle.dump(creds, token)
+        # Save credentials - use session_state in Streamlit, file storage locally
+        if HAS_STREAMLIT and hasattr(st, "session_state"):
+            st.session_state.oauth_credentials = creds
+        else:
+            with open(self.TOKEN_FILE, "wb") as token:
+                pickle.dump(creds, token)
 
         # Fetch and save user info
         self.fetch_and_save_user_info(creds)
@@ -229,8 +265,19 @@ class UnifiedOAuthHelper:
 
     def revoke_authentication(self):
         """Remove stored credentials."""
-        if self.TOKEN_FILE.exists():
-            os.remove(self.TOKEN_FILE)
+        # Clear session_state in Streamlit, file storage locally
+        if HAS_STREAMLIT and hasattr(st, "session_state"):
+            # Clear OAuth session data
+            if "oauth_credentials" in st.session_state:
+                del st.session_state.oauth_credentials
+            if "oauth_user_info" in st.session_state:
+                del st.session_state.oauth_user_info
+        else:
+            # Fallback to file storage for local development
+            if self.TOKEN_FILE.exists():
+                os.remove(self.TOKEN_FILE)
+            if self.USER_INFO_FILE.exists():
+                os.remove(self.USER_INFO_FILE)
 
     def __del__(self):
         """Cleanup temporary file if created."""
