@@ -120,3 +120,51 @@ Para fazer deploy no Streamlit Cloud, você precisa configurar o `client_secret.
 - Localmente: O código lê o arquivo `client_secret.json`
 - No Streamlit Cloud: O código lê de `st.secrets['CLIENT_SECRET_JSON']`
 - A detecção é automática! 🎉
+
+## Passo 5: Segurança do Backend (Acesso Público para OAuth)
+
+⚠️ **IMPORTANTE**: O backend Cloud Run precisa ter **acesso público** habilitado para que o OAuth funcione.
+
+### Por que o acesso público é necessário?
+
+O fluxo OAuth funciona assim:
+1. Usuário clica em "Login com Google" no Streamlit
+2. Google redireciona o usuário para `https://seu-backend.run.app/oauth/callback`
+3. **O navegador do usuário acessa diretamente esse endpoint** (não o Streamlit)
+4. O endpoint retorna o código de autorização para o usuário copiar
+
+Se o backend estiver com autenticação IAM, o navegador do usuário receberá erro 403 Forbidden.
+
+### Como habilitar acesso público:
+
+Se você usou o script `scripts/setup_brazil_infra.sh`, o acesso público já está configurado.
+
+Se não, execute:
+
+```bash
+gcloud run services add-iam-policy-binding cabide-api \
+  --region=southamerica-east1 \
+  --member="allUsers" \
+  --role="roles/run.invoker"
+```
+
+### Isso é seguro?
+
+✅ **Sim**, desde que você implemente autenticação nos endpoints sensíveis:
+
+- **`/oauth/callback`**: Endpoint público (não processa dados sensíveis, apenas mostra o código)
+- **`/generate`**: Protegido com verificação de token OAuth
+- **`/health`**: Endpoint público (apenas status)
+
+O código já implementa verificação de token OAuth nos endpoints que processam dados:
+- Ver [src/api.py:40-90](src/api.py#L40-L90) para verificação de token
+- Ver [src/api.py:141](src/api.py#L141) para uso da proteção no `/generate`
+
+### Alternativa (não recomendado):
+
+Você poderia usar autenticação IAM e fazer o Streamlit chamar o backend com credenciais, mas:
+- ❌ Mais complexo de configurar
+- ❌ Requer gerenciar chaves de service account no Streamlit
+- ❌ OAuth callback ainda precisaria de um endpoint público separado
+
+A solução atual (backend público + autenticação OAuth por endpoint) é mais simples e segura.

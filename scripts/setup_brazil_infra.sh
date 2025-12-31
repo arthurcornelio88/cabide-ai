@@ -108,7 +108,7 @@ else
     echo "✅ Artifact Registry created"
 fi
 
-# 6. Create Cloud Run service (initial placeholder with NO public access)
+# 6. Create Cloud Run service (initial placeholder with public access for OAuth)
 echo ""
 echo "6️⃣ Creating Cloud Run service..."
 if gcloud run services describe $SERVICE_NAME --region=$REGION &>/dev/null; then
@@ -118,10 +118,11 @@ else
         --image=us-docker.pkg.dev/cloudrun/container/hello \
         --region=$REGION \
         --platform=managed \
-        --no-allow-unauthenticated \
+        --allow-unauthenticated \
         --service-account=${DEPLOYER_SA}@${PROJECT_ID}.iam.gserviceaccount.com \
         --quiet
-    echo "✅ Cloud Run service created (placeholder image, authentication required)"
+    echo "✅ Cloud Run service created (placeholder image, public access enabled)"
+    echo "ℹ️  Public access is required for OAuth callback endpoint"
 fi
 
 # 7. Grant Cloud Run Invoker permission to Streamlit SA and authorized users
@@ -150,16 +151,18 @@ gcloud run services add-iam-policy-binding $SERVICE_NAME \
 
 echo "✅ Cloud Run invoke permissions granted"
 
-# 8. Remove public access if it exists
+# 8. Grant public access for OAuth callback endpoint
 echo ""
-echo "8️⃣ Ensuring no public access..."
-gcloud run services remove-iam-policy-binding $SERVICE_NAME \
+echo "8️⃣ Enabling public access for OAuth callback..."
+gcloud run services add-iam-policy-binding $SERVICE_NAME \
     --region=$REGION \
     --member="allUsers" \
     --role="roles/run.invoker" \
-    --quiet 2>/dev/null || echo "ℹ️  No public access to remove"
+    --quiet
 
-echo "✅ Service is now fully protected"
+echo "✅ Public access enabled for OAuth callback endpoint"
+echo "ℹ️  Note: This is required for Google OAuth redirect to work"
+echo "ℹ️  The /oauth/callback endpoint needs to be publicly accessible"
 
 # 9. Summary
 echo ""
@@ -179,9 +182,14 @@ echo "👥 Authorized Users:"
 echo "   - arthur.cornelio@gmail.com"
 echo "   - elzamoraes.contato@gmail.com"
 echo ""
+echo "🔓 Security Note:"
+echo "   - Service has PUBLIC access enabled for OAuth callback endpoint (/oauth/callback)"
+echo "   - This is REQUIRED for Google OAuth to redirect users back to the app"
+echo "   - Other endpoints can implement their own authentication as needed"
+echo ""
 echo "📝 Next steps:"
-echo "   1. Download key for invoker SA: gcloud iam service-accounts keys create streamlit-sa-key.json --iam-account=${INVOKER_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
-echo "   2. Add invoker SA key to Streamlit Cloud secrets (GCP_SERVICE_ACCOUNT_JSON)"
-echo "   3. Update GitHub Secrets with deployer SA key (GCP_SERVICE_ACCOUNT)"
+echo "   1. Download key for deployer SA: gcloud iam service-accounts keys create deployer-sa-key.json --iam-account=${DEPLOYER_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+echo "   2. Update GitHub Secrets with deployer SA key (GCP_SERVICE_ACCOUNT)"
+echo "   3. Configure OAuth in Google Cloud Console (see OAUTH_SETUP.md)"
 echo "   4. Push to 'main' branch to trigger automatic deployment"
 echo ""
