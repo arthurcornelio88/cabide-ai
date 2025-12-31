@@ -150,7 +150,18 @@ gcloud run services add-iam-policy-binding $SERVICE_NAME \
 
 echo "✅ Cloud Run invoke permissions granted"
 
-# 8. Summary
+# 8. Remove public access if it exists
+echo ""
+echo "8️⃣ Ensuring no public access..."
+gcloud run services remove-iam-policy-binding $SERVICE_NAME \
+    --region=$REGION \
+    --member="allUsers" \
+    --role="roles/run.invoker" \
+    --quiet 2>/dev/null || echo "ℹ️  No public access to remove"
+
+echo "✅ Service is now fully protected"
+
+# 9. Summary
 echo ""
 echo "🎉 Infrastructure setup complete!"
 echo ""
