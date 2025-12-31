@@ -42,16 +42,16 @@ jobs:
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:latest
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:${{ github.sha }}
 
-      # 5. Deploy Backend to Cloud Run (São Paulo) - IAM-protected
+      # 5. Deploy Backend to Cloud Run (São Paulo) - Public for OAuth
       - name: Deploy Backend to Cloud Run
         id: deploy-backend
         run: |
-          # Deploy with service account and env vars (NO public access)
+          # Deploy with public access (required for OAuth callback)
           gcloud run deploy cabide-api \
             --image=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/backend:latest \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --no-allow-unauthenticated \
+            --allow-unauthenticated \
             --service-account=cabide-ai-uploader@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
             --set-env-vars=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}",GDRIVE_FOLDER_ID="${{ secrets.GDRIVE_FOLDER_ID }}" \
             --format=json \
