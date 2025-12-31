@@ -1,41 +1,167 @@
-![act-logo](https://raw.githubusercontent.com/wiki/nektos/act/img/logo-150.png)
+# Cabide AI
 
-# Overview [![push](https://github.com/nektos/act/workflows/push/badge.svg?branch=master&event=push)](https://github.com/nektos/act/actions) [![Go Report Card](https://goreportcard.com/badge/github.com/nektos/act)](https://goreportcard.com/report/github.com/nektos/act) [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
+AI-powered fashion catalog generator for Cabide da Ieie using Google Gemini 3 Pro.
 
-> "Think globally, `act` locally"
+## 🚀 Quick Start
 
-Run your [GitHub Actions](https://developer.github.com/actions/) locally! Why would you want to do this? Two reasons:
+### Prerequisites
+- Python 3.11+
+- Google Cloud Project with billing enabled
+- Docker (for local testing)
+- GitHub CLI (optional, for secrets management)
 
-- **Fast Feedback** - Rather than having to commit/push every time you want to test out the changes you are making to your `.github/workflows/` files (or for any changes to embedded GitHub actions), you can use `act` to run the actions locally. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://help.github.com/en/actions/reference/virtual-environments-for-github-hosted-runners#filesystems-on-github-hosted-runners) are all configured to match what GitHub provides.
-- **Local Task Runner** - I love [make](<https://en.wikipedia.org/wiki/Make_(software)>). However, I also hate repeating myself. With `act`, you can use the GitHub Actions defined in your `.github/workflows/` to replace your `Makefile`!
+### Local Development
 
-> [!TIP]
-> **Now Manage and Run Act Directly From VS Code!**<br/>
-> Check out the [GitHub Local Actions](https://sanjulaganepola.github.io/github-local-actions-docs/) Visual Studio Code extension which allows you to leverage the power of `act` to run and test workflows locally without leaving your editor.
+```bash
+# Install dependencies with uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv pip install -e .
 
-# How Does It Work?
+# Copy .env.example to .env and fill in your credentials
+cp .env.example .env
 
-When you run `act` it reads in your GitHub Actions from `.github/workflows/` and determines the set of actions that need to be run. It uses the Docker API to either pull or build the necessary images, as defined in your workflow files and finally determines the execution path based on the dependencies that were defined. Once it has the execution path, it then uses the Docker API to run containers for each action based on the images prepared earlier. The [environment variables](https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables) and [filesystem](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#file-systems) are all configured to match what GitHub provides.
+# Run the API locally
+uvicorn src.api:app --reload
 
-Let's see it in action with a [sample repo](https://github.com/cplee/github-actions-demo)!
+# Run the Streamlit UI locally
+streamlit run src/app.py
+```
 
-![Demo](https://raw.githubusercontent.com/wiki/nektos/act/quickstart/act-quickstart-2.gif)
+## 📦 Deployment
 
-# Act User Guide
+### Infrastructure Setup
 
-Please look at the [act user guide](https://nektosact.com) for more documentation.
+```bash
+# Run the infrastructure setup script (creates GCP resources)
+bash scripts/setup_brazil_infra.sh
+```
 
-# Support
+This script will:
+- ✅ Enable required Google Cloud APIs
+- ✅ Create Artifact Registry repository in São Paulo region
+- ✅ Create Cloud Run service for the backend
+- ✅ Set up proper IAM permissions
 
-Need help? Ask in [discussions](https://github.com/nektos/act/discussions)!
+### Secrets Management
 
-# Contributing
+```bash
+# Sync secrets from .env to GitHub repository secrets
+bash scripts/sync-secrets.sh
+```
 
-Want to contribute to act? Awesome! Check out the [contributing guidelines](CONTRIBUTING.md) to get involved.
+This automatically syncs:
+- `GEMINI_API_KEY` - Google AI Studio API key
+- `GDRIVE_FOLDER_ID` - Google Drive folder for catalog storage
+- `GCP_PROJECT_ID` - Google Cloud project ID
+- `GCP_SERVICE_ACCOUNT` - Service account JSON (from file)
 
-## Manually building from source
+### Architecture
 
-- Install Go tools 1.20+ - (<https://golang.org/doc/install>)
-- Clone this repo `git clone git@github.com:nektos/act.git`
-- Run unit tests with `make test`
-- Build and install: `make install`
+- **Backend:** FastAPI on Cloud Run (São Paulo region)
+- **Frontend:** Streamlit Cloud (free tier)
+- **Storage:** Local filesystem + Google Drive backup
+- **CI/CD:** GitHub Actions with automatic deployment
+
+## 🧪 Testing
+
+```bash
+# Run tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ --cov=src --cov-report=term-missing
+
+# Lint code
+uv run ruff check .
+uv run ruff format .
+
+# Security scan
+bandit -r src/
+safety check
+```
+
+### Local CI Testing with Act
+
+```bash
+# Install act
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+# Run CI jobs locally
+act pull_request -j test
+act pull_request -j lint
+act pull_request -j security
+```
+
+## 📁 Project Structure
+
+```
+cabide-ai/
+├── src/                    # Source code
+│   ├── api.py             # FastAPI backend
+│   ├── app.py             # Streamlit frontend
+│   ├── engine.py          # Gemini AI engine
+│   └── config.py          # Configuration management
+├── scripts/               # Utility scripts
+│   ├── setup_brazil_infra.sh   # GCP infrastructure setup
+│   └── sync-secrets.sh         # GitHub secrets sync
+├── tests/                 # Test suite
+├── .github/workflows/     # CI/CD pipelines
+│   ├── ci.yml            # Tests, lint, security
+│   └── deploy.yml        # Cloud Run deployment
+└── deploy.md             # Deployment checklist
+
+```
+
+## 🔐 Security
+
+- OAuth 2.0 authentication for API endpoints
+- Service account for Google Drive integration
+- Secrets managed via GitHub Secrets (repo) and Streamlit Cloud (app)
+- Security scanning with Bandit and Safety in CI
+
+## 📝 Documentation
+
+- [Deployment Guide](deploy.md) - Complete deployment checklist
+- [Deployment Plan](DEPLOY_PLAN.md) - Architecture migration guide
+- [TODO](TODO.md) - Project tasks and progress
+
+## 🛠️ Scripts
+
+### `scripts/setup_brazil_infra.sh`
+Sets up complete GCP infrastructure in São Paulo region:
+- Enables required APIs
+- Creates Artifact Registry for Docker images
+- Deploys initial Cloud Run service
+- Idempotent (safe to run multiple times)
+
+### `scripts/sync-secrets.sh`
+Synchronizes environment variables from `.env` to GitHub repository secrets:
+- Reads values from `.env` file
+- Uploads to GitHub using `gh` CLI
+- Handles both string and JSON file secrets
+- Useful for keeping secrets in sync
+
+## 🌍 Region & Performance
+
+Optimized for Brazil:
+- **Cloud Run:** `southamerica-east1` (São Paulo)
+- **Artifact Registry:** `southamerica-east1`
+- **Latency:** < 50ms for Brazilian users
+
+## 💰 Cost Optimization
+
+- Frontend on Streamlit Cloud (free)
+- Backend on Cloud Run (pay-per-use)
+- No GCS bucket costs (uses local + Drive)
+- **Estimated:** $5-15/month
+
+## 🤝 Contributing
+
+1. Create a feature branch
+2. Make changes and test locally
+3. Run CI checks: `pytest && ruff check . && bandit -r src/`
+4. Submit PR (CI must pass)
+
+## 📄 License
+
+Private project - All rights reserved.
