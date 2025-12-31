@@ -1,19 +1,20 @@
+import logging
 import os
 import shutil
 import uuid
-import logging
 from typing import Annotated, Optional
 
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, Header
-from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
 import google.generativeai as genai
 import requests
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
+from src.config import Settings, get_settings
 from src.engine import FashionEngine
-from src.config import get_settings, Settings
 
 logger = logging.getLogger(__name__)
+
 
 # --- Schemas ---
 class HealthResponse(BaseModel):
@@ -21,6 +22,7 @@ class HealthResponse(BaseModel):
     model: str
     storage_mode: str
     version: str = "1.1.0"
+
 
 # --- Initialization ---
 app = FastAPI(title="Cabide AI API - Brazil/France Hybrid")
@@ -34,6 +36,7 @@ os.makedirs(_init_settings.output_dir, exist_ok=True)
 engine = FashionEngine()
 
 # --- Helper Functions ---
+
 
 async def verify_oauth_token(authorization: Optional[str] = Header(None)):
     """
@@ -51,7 +54,7 @@ async def verify_oauth_token(authorization: Optional[str] = Header(None)):
     if not authorization:
         raise HTTPException(
             status_code=401,
-            detail="Authentication required. Please provide Bearer token in Authorization header."
+            detail="Authentication required. Please provide Bearer token in Authorization header.",
         )
 
     # Extract token from "Bearer <token>"
@@ -59,7 +62,7 @@ async def verify_oauth_token(authorization: Optional[str] = Header(None)):
     if len(parts) != 2 or parts[0].lower() != "bearer":
         raise HTTPException(
             status_code=401,
-            detail="Invalid authorization header format. Expected: Bearer <token>"
+            detail="Invalid authorization header format. Expected: Bearer <token>",
         )
 
     token = parts[1]
@@ -67,15 +70,14 @@ async def verify_oauth_token(authorization: Optional[str] = Header(None)):
     # Verify token with Google
     try:
         response = requests.get(
-            'https://www.googleapis.com/oauth2/v2/userinfo',
-            headers={'Authorization': f'Bearer {token}'},
-            timeout=5
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=5,
         )
 
         if response.status_code != 200:
             raise HTTPException(
-                status_code=401,
-                detail="Invalid or expired OAuth token"
+                status_code=401, detail="Invalid or expired OAuth token"
             )
 
         user_info = response.json()
@@ -84,10 +86,8 @@ async def verify_oauth_token(authorization: Optional[str] = Header(None)):
 
     except requests.RequestException as e:
         logger.error(f"OAuth verification failed: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Failed to verify OAuth token"
-        )
+        raise HTTPException(status_code=401, detail="Failed to verify OAuth token")
+
 
 def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | None]:
     """
@@ -110,11 +110,11 @@ def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | No
     name_without_ext = os.path.splitext(filename)[0]
 
     # Words to ignore (these are not garment types)
-    ignore_words = {'front', 'back', 'frente', 'costas'}
+    ignore_words = {"front", "back", "frente", "costas"}
 
     # Pattern: starts with digits, followed by underscore, then text (type), then underscore or end
     # This handles: 47_pantalon_..., 100_vestidofesta_..., etc.
-    pattern = r'^(\d+)_([a-zA-Zàéèêç]+)(?:_|$)'
+    pattern = r"^(\d+)_([a-zA-Zàéèêç]+)(?:_|$)"
     match = re.match(pattern, name_without_ext)
 
     if match:
@@ -128,13 +128,15 @@ def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | No
         return (number, garment_type)
 
     # Fallback: try to extract just the number if format is different
-    number_match = re.match(r'^(\d+)', name_without_ext)
+    number_match = re.match(r"^(\d+)", name_without_ext)
     if number_match:
         return (number_match.group(1), None)
 
     return (None, None)
 
+
 # --- Endpoints ---
+
 
 @app.post("/generate")
 async def generate_model_photo(
@@ -148,7 +150,7 @@ async def generate_model_photo(
     piece2_type: Annotated[str | None, Form()] = None,
     piece3_type: Annotated[str | None, Form()] = None,
     settings: Settings = Depends(get_settings),
-    user_info: dict = Depends(verify_oauth_token)
+    user_info: dict = Depends(verify_oauth_token),
 ):
     """
     Generate lifestyle photo from garment image.
@@ -166,7 +168,9 @@ async def generate_model_photo(
     Raises:
         HTTPException: On validation or processing errors
     """
-    logger.info(f"Received request: env={env}, garment_number={garment_number}, garment_type={garment_type}, position={position}, feedback={feedback}, files={len(files)}")
+    logger.info(
+        f"Received request: env={env}, garment_number={garment_number}, garment_type={garment_type}, position={position}, feedback={feedback}, files={len(files)}"
+    )
 
     # Validate we have at least one file
     if not files or len(files) == 0:
@@ -174,7 +178,9 @@ async def generate_model_photo(
 
     # Extract garment_number and garment_type from first filename if not provided
     if not garment_number or not garment_type:
-        extracted_number, extracted_type = _extract_metadata_from_filename(files[0].filename)
+        extracted_number, extracted_type = _extract_metadata_from_filename(
+            files[0].filename
+        )
         garment_number = garment_number or extracted_number
         garment_type = garment_type or extracted_type
 
@@ -182,7 +188,7 @@ async def generate_model_photo(
     if not garment_number or not garment_type:
         raise HTTPException(
             status_code=400,
-            detail="garment_number and garment_type are required. Either provide them explicitly or use a filename with format: <number>_<type>_<rest>.ext (e.g., 42_pantalon_20251229.HEIC)"
+            detail="garment_number and garment_type are required. Either provide them explicitly or use a filename with format: <number>_<type>_<rest>.ext (e.g., 42_pantalon_20251229.HEIC)",
         )
 
     job_id = str(uuid.uuid4())
@@ -192,23 +198,27 @@ async def generate_model_photo(
         # Process all uploaded files
         for idx, file in enumerate(files):
             if not file.filename:
-                raise HTTPException(status_code=400, detail=f"Filename is required for file {idx}")
-
-            file_ext = os.path.splitext(file.filename)[1].lower()
-            if file_ext not in ['.png', '.jpg', '.jpeg', '.heic', '.heif']:
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Unsupported file type: {file_ext}. Use PNG, JPG, JPEG, HEIC, or HEIF."
+                    status_code=400, detail=f"Filename is required for file {idx}"
                 )
 
-            temp_path = os.path.join(settings.temp_upload_dir, f"{job_id}_{idx}{file_ext}")
+            file_ext = os.path.splitext(file.filename)[1].lower()
+            if file_ext not in [".png", ".jpg", ".jpeg", ".heic", ".heif"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported file type: {file_ext}. Use PNG, JPG, JPEG, HEIC, or HEIF.",
+                )
+
+            temp_path = os.path.join(
+                settings.temp_upload_dir, f"{job_id}_{idx}{file_ext}"
+            )
 
             # Save upload to temp
             with open(temp_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
             # Convert HEIC to PNG if needed
-            if file_ext in ['.heic', '.heif']:
+            if file_ext in [".heic", ".heif"]:
                 try:
                     from PIL import Image
                     from pillow_heif import register_heif_opener
@@ -217,8 +227,10 @@ async def generate_model_photo(
                     img = Image.open(temp_path)
 
                     # Convert to PNG for processing
-                    png_path = os.path.join(settings.temp_upload_dir, f"{job_id}_{idx}.png")
-                    img.save(png_path, format='PNG')
+                    png_path = os.path.join(
+                        settings.temp_upload_dir, f"{job_id}_{idx}.png"
+                    )
+                    img.save(png_path, format="PNG")
 
                     # Remove original HEIC file and use PNG
                     os.remove(temp_path)
@@ -226,19 +238,19 @@ async def generate_model_photo(
                 except Exception as e:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Failed to convert HEIC image: {str(e)}"
+                        detail=f"Failed to convert HEIC image: {str(e)}",
                     )
 
             # Validate file is a real image
             try:
                 from PIL import Image
+
                 with Image.open(temp_path) as img:
                     img.verify()  # Verify it's a valid image
                 # Note: verify() invalidates the image, so we don't keep it open
             except Exception as e:
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid image file: {str(e)}"
+                    status_code=400, detail=f"Invalid image file: {str(e)}"
                 )
 
             temp_paths.append(temp_path)
@@ -249,7 +261,7 @@ async def generate_model_photo(
             conjunto_pieces = {
                 "piece1_type": piece1_type,
                 "piece2_type": piece2_type,
-                "piece3_type": piece3_type
+                "piece3_type": piece3_type,
             }
 
         # Generate using Engine
@@ -264,35 +276,32 @@ async def generate_model_photo(
             garment_type=garment_type,
             position=position,
             conjunto_pieces=conjunto_pieces,
-            feedback=feedback
+            feedback=feedback,
         )
 
         # Always return file (GCS disabled - using Drive for permanent storage)
         if not os.path.exists(result_path_or_url):
             raise HTTPException(
-                status_code=500,
-                detail="Generated image file not found"
+                status_code=500, detail="Generated image file not found"
             )
 
         return FileResponse(
             path=result_path_or_url,
             media_type="image/png",
-            filename=f"cabide_{job_id}.png"
+            filename=f"cabide_{job_id}.png",
         )
 
     except HTTPException:
         raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         logger.error(f"Generation failed for job {job_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Engine Error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Engine Error: {str(e)}")
     finally:
         # Clean up all temp files
         for temp_path in temp_paths:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
+
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check(settings: Settings = Depends(get_settings)):
@@ -319,5 +328,5 @@ async def health_check(settings: Settings = Depends(get_settings)):
     return HealthResponse(
         status=status,
         model="gemini-3-pro-image-preview",
-        storage_mode=settings.storage_mode
+        storage_mode=settings.storage_mode,
     )

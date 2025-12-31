@@ -1,13 +1,14 @@
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
+
+import pillow_heif
 from PIL import Image
 from PIL.ExifTags import TAGS
-import pillow_heif
 
 # Enregistrement du support HEIF pour les photos iPhone
 pillow_heif.register_heif_opener()
+
 
 def extract_caption(image_path):
     """Extrait la description/légende des métadonnées EXIF."""
@@ -24,6 +25,7 @@ def extract_caption(image_path):
         print(f"Erreur lecture metadata pour {image_path}: {e}")
     return "sans_nom"
 
+
 def process_images(input_dir, output_dir):
     # Setup des chemins
     input_path = Path(input_dir)
@@ -35,7 +37,7 @@ def process_images(input_dir, output_dir):
     print(f"🚀 Début du traitement de : {input_path}")
 
     for file_path in input_path.iterdir():
-        if file_path.suffix.lower() in ['.jpg', '.jpeg', '.png', '.heic']:
+        if file_path.suffix.lower() in [".jpg", ".jpeg", ".png", ".heic"]:
             # 1. Extraction de la légende
             caption = extract_caption(file_path)
 
@@ -47,6 +49,7 @@ def process_images(input_dir, output_dir):
             # 3. Copie du fichier
             shutil.copy2(file_path, dest_path)
             print(f"✅ {file_path.name} -> {new_name}")
+
 
 if __name__ == "__main__":
     # Configure tes dossiers ici

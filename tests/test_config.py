@@ -1,9 +1,10 @@
 """
 Tests for configuration management.
 """
+
 import pytest
-import json
-from src.config import Settings, get_settings
+
+from src.config import Settings
 
 
 def test_settings_defaults(test_env_vars):

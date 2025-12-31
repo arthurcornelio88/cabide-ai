@@ -1,23 +1,22 @@
-import os
-import uuid
 import logging
-import re
 import random
-from pathlib import Path
+import re
 from io import BytesIO
-from typing import Union, List, Optional
+from pathlib import Path
+from typing import List, Optional, Union
 
-from PIL import Image
 import google.generativeai as genai
+from PIL import Image
 
 # Register HEIC support for PIL
 try:
     from pillow_heif import register_heif_opener
+
     register_heif_opener()
 except ImportError:
     pass  # HEIC support not available
 
-from src.config import get_settings, Settings
+from src.config import Settings, get_settings
 
 logger = logging.getLogger("CabideEngine")
 
@@ -40,18 +39,21 @@ TYPE_NORMALIZATION = {
     "colar": "colar",
     "sapato": "sapato",
     "chaussure": "sapato",
-    "conjunto": "conjunto"
+    "conjunto": "conjunto",
 }
+
 
 class FashionEngine:
     def __init__(self, settings: Settings = None):
         self.settings = settings or get_settings()
         genai.configure(api_key=self.settings.gemini_api_key)
-        self.model = genai.GenerativeModel('gemini-3-pro-image-preview')
+        self.model = genai.GenerativeModel("gemini-3-pro-image-preview")
 
         # Always use local storage (GCS disabled - using Drive for permanent storage)
         self.settings.output_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"FashionEngine initialized - output_dir={self.settings.output_dir}")
+        logger.info(
+            f"FashionEngine initialized - output_dir={self.settings.output_dir}"
+        )
 
     def _normalize_garment_type(self, garment_type: Optional[str]) -> str:
         """Normalize garment type to Portuguese."""
@@ -92,7 +94,7 @@ class FashionEngine:
         position: str = None,
         conjunto_pieces: dict = None,
         model_attributes: dict = None,
-        feedback: str = None
+        feedback: str = None,
     ) -> str:
         # Handle single or list (front/back)
         paths = [garment_path] if isinstance(garment_path, str) else garment_path
@@ -119,7 +121,9 @@ class FashionEngine:
         final_act = activity or random.choice(self.settings.activities)
 
         # Normalize and prepare garment type for template
-        normalized_type = self._normalize_garment_type(garment_type) if garment_type else "garment"
+        normalized_type = (
+            self._normalize_garment_type(garment_type) if garment_type else "garment"
+        )
 
         # Override environment if it's a party dress
         if "vestidodefesta" in ref_filename.lower() and not environment:
@@ -134,10 +138,11 @@ class FashionEngine:
         else:
             raw_template = self._load_template(ref_filename)
 
-        formatted_prompt = (raw_template
-                           .replace("{{environment}}", final_env)
-                           .replace("{{activity}}", final_act)
-                           .replace("{{garment_type}}", normalized_type))
+        formatted_prompt = (
+            raw_template.replace("{{environment}}", final_env)
+            .replace("{{activity}}", final_act)
+            .replace("{{garment_type}}", normalized_type)
+        )
 
         # Add conjunto-specific hints
         conjunto_hint = ""
@@ -146,7 +151,9 @@ class FashionEngine:
             piece2 = conjunto_pieces.get("piece2_type", "")
             piece3 = conjunto_pieces.get("piece3_type", "")
 
-            conjunto_hint = f"\n\nCONJUNTO COMPOSITION: Image 1 = {piece1}, Image 2 = {piece2}"
+            conjunto_hint = (
+                f"\n\nCONJUNTO COMPOSITION: Image 1 = {piece1}, Image 2 = {piece2}"
+            )
             if piece3:
                 conjunto_hint += f", Image 3 = {piece3}"
             conjunto_hint += ". You must combine ALL these separate garment pieces into ONE coordinated outfit on the model."
@@ -158,13 +165,12 @@ class FashionEngine:
                 if position.lower() in ["ambos", "both"]:
                     position_hint = "\n\nNote: Image 1 shows the front view, Image 2 shows the back view."
             elif position and len(garment_images) == 1:
-                position_map = {
-                    "frente": "front view",
-                    "costas": "back view"
-                }
+                position_map = {"frente": "front view", "costas": "back view"}
                 view = position_map.get(position.lower(), "")
                 if view:
-                    position_hint = f"\n\nNote: The image shows the {view} of the garment."
+                    position_hint = (
+                        f"\n\nNote: The image shows the {view} of the garment."
+                    )
 
         # Add model attributes hint if provided
         model_hint = ""
@@ -198,7 +204,7 @@ class FashionEngine:
                 "Solto": "hair down",
                 "Preso": "hair tied up",
                 "Coque": "hair in a bun",
-                "Rabo de Cavalo": "hair in a ponytail"
+                "Rabo de Cavalo": "hair in a ponytail",
             }
 
             for key, value in model_attributes.items():
@@ -224,34 +230,42 @@ class FashionEngine:
         content_parts = [final_prompt] + garment_images
 
         try:
-            logger.info("Calling Gemini API for image generation", extra={
-                "environment": final_env,
-                "activity": final_act,
-                "garment_number": garment_number,
-                "garment_type": garment_type
-            })
+            logger.info(
+                "Calling Gemini API for image generation",
+                extra={
+                    "environment": final_env,
+                    "activity": final_act,
+                    "garment_number": garment_number,
+                    "garment_type": garment_type,
+                },
+            )
 
             response = self.model.generate_content(content_parts)
 
             # Validate response
             if not response.candidates:
-                logger.error("Gemini returned no candidates - response may have been blocked")
-                raise ValueError("Gemini returned no candidates. Response may have been blocked.")
+                logger.error(
+                    "Gemini returned no candidates - response may have been blocked"
+                )
+                raise ValueError(
+                    "Gemini returned no candidates. Response may have been blocked."
+                )
 
             candidate = response.candidates[0]
             logger.debug(f"Gemini response finish_reason: {candidate.finish_reason}")
 
             # Check if response has image attribute (old format)
-            if hasattr(candidate, 'image') and candidate.image is not None:
+            if hasattr(candidate, "image") and candidate.image is not None:
                 logger.info("Image received via legacy image attribute")
                 generated_pil = candidate.image
             # Check if response has parts with inline_data (new format)
-            elif hasattr(candidate.content, 'parts') and candidate.content.parts:
+            elif hasattr(candidate.content, "parts") and candidate.content.parts:
                 # Extract image data from the response
                 import base64
+
                 for part in candidate.content.parts:
-                    if hasattr(part, 'inline_data') and part.inline_data:
-                        mime_type = getattr(part.inline_data, 'mime_type', 'unknown')
+                    if hasattr(part, "inline_data") and part.inline_data:
+                        mime_type = getattr(part.inline_data, "mime_type", "unknown")
                         logger.debug(f"Found inline_data with mime_type: {mime_type}")
 
                         # The data is already in bytes format in the google.generativeai library
@@ -262,14 +276,20 @@ class FashionEngine:
                             image_data = base64.b64decode(part.inline_data.data)
                         else:
                             # Protobuf bytes field
-                            logger.debug(f"Converting protobuf data type: {type(part.inline_data.data)}")
+                            logger.debug(
+                                f"Converting protobuf data type: {type(part.inline_data.data)}"
+                            )
                             image_data = bytes(part.inline_data.data)
 
-                        logger.info(f"Image received: {len(image_data)} bytes, mime_type={mime_type}")
+                        logger.info(
+                            f"Image received: {len(image_data)} bytes, mime_type={mime_type}"
+                        )
                         image_buffer = BytesIO(image_data)
                         image_buffer.seek(0)
                         generated_pil = Image.open(image_buffer)
-                        logger.info(f"Image decoded successfully: {generated_pil.format} {generated_pil.size}")
+                        logger.info(
+                            f"Image decoded successfully: {generated_pil.format} {generated_pil.size}"
+                        )
                         break
                 else:
                     logger.error(f"Gemini response missing image data: {response}")
@@ -286,11 +306,14 @@ class FashionEngine:
                 )
 
         except Exception as e:
-            logger.error(f"Image generation failed: {e}", extra={
-                "garment_number": garment_number,
-                "garment_type": garment_type,
-                "error_type": type(e).__name__
-            })
+            logger.error(
+                f"Image generation failed: {e}",
+                extra={
+                    "garment_number": garment_number,
+                    "garment_type": garment_type,
+                    "error_type": type(e).__name__,
+                },
+            )
             raise RuntimeError(f"Failed to generate image: {str(e)}") from e
 
         # Generate output filename with metadata (both number and type are now required)
@@ -302,8 +325,12 @@ class FashionEngine:
 
         # Special filename format for conjunto
         if garment_type.lower() == "conjunto" and conjunto_pieces:
-            piece1 = self._normalize_garment_type(conjunto_pieces.get("piece1_type", ""))
-            piece2 = self._normalize_garment_type(conjunto_pieces.get("piece2_type", ""))
+            piece1 = self._normalize_garment_type(
+                conjunto_pieces.get("piece1_type", "")
+            )
+            piece2 = self._normalize_garment_type(
+                conjunto_pieces.get("piece2_type", "")
+            )
             piece3 = conjunto_pieces.get("piece3_type")
 
             # Format: cabide_conjunto_100-camisa-27-calca-18-veste.png

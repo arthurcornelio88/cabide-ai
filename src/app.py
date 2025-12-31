@@ -1,32 +1,33 @@
-import os
 import io
-import uuid
-import json
+import os
+
 import requests
 import streamlit as st
-from src.engine import FashionEngine
-from src.driver_service import DriveService
-from src.oauth_helper import UnifiedOAuthHelper
-from src.auth_ui import require_authentication
+
 from src.api_client import CabideAPIClient
-from src.config import get_settings, Settings
+from src.auth_ui import require_authentication
+from src.config import Settings, get_settings
+from src.driver_service import DriveService
+from src.engine import FashionEngine
+from src.oauth_helper import UnifiedOAuthHelper
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="Cabide AI - Professional Catalog",
-    page_icon="👗",
-    layout="centered"
+    page_title="Cabide AI - Professional Catalog", page_icon="👗", layout="centered"
 )
+
 
 # --- Singleton-style Initialization ---
 @st.cache_resource
 def get_engine(_version="1.3.0-feedback"):
     return FashionEngine()
 
+
 @st.cache_resource
 def get_oauth_helper():
     """Initialize OAuth helper singleton."""
     return UnifiedOAuthHelper()
+
 
 @st.cache_resource
 def get_drive_manager(_settings: Settings, _oauth_helper: UnifiedOAuthHelper):
@@ -44,6 +45,7 @@ def get_drive_manager(_settings: Settings, _oauth_helper: UnifiedOAuthHelper):
         except Exception as e:
             st.error(f"Failed to initialize Drive Service: {e}")
     return None
+
 
 # Load Resources
 settings = get_settings()
@@ -86,7 +88,7 @@ with st.expander("🎨 Scene Customization", expanded=True):
             "Festa (Party)": "luxury party ballroom",
             "Escritório (Office)": "office",
             "Congresso (Congress Hall)": "congress hall",
-            "Consultório (Medical Office)": "medical office"
+            "Consultório (Medical Office)": "medical office",
         }
         selected_env_label = st.selectbox("Select Environment", list(env_labels.keys()))
         env_value = env_labels[selected_env_label]
@@ -100,9 +102,11 @@ with st.expander("🎨 Scene Customization", expanded=True):
             "Posando (Posing)": "posing elegantly",
             "No Celular (On Phone)": "checking phone",
             "Fazendo Apresentação (Presenting)": "standing and presenting to an audience with confident body language",
-            "Atendendo Cliente (Attending Client)": "attending to a client"
+            "Atendendo Cliente (Attending Client)": "attending to a client",
         }
-        selected_act_label = st.selectbox("Model Activity", list(activity_labels.keys()))
+        selected_act_label = st.selectbox(
+            "Model Activity", list(activity_labels.keys())
+        )
         act_value = activity_labels[selected_act_label]
 
 # --- Garment Metadata Section ---
@@ -112,24 +116,41 @@ with st.expander("📋 Dados da Peça", expanded=True):
         garment_number = st.text_input(
             "Número da Peça *",
             placeholder="Ex: 100",
-            help="Número único da peça para o catálogo"
+            help="Número único da peça para o catálogo",
         )
     with col_type:
         garment_type = st.selectbox(
             "Tipo da Peça *",
-            ["", "Vestido", "Vestido de Festa", "Calça", "Camisa", "Saia",
-             "Sapato", "Écharpe", "Bracelete", "Veste", "Conjunto", "Vestido com Modelo"],
-            help="Selecione o tipo de roupa. 'Vestido com Modelo' = trocar apenas o fundo"
+            [
+                "",
+                "Vestido",
+                "Vestido de Festa",
+                "Calça",
+                "Camisa",
+                "Saia",
+                "Sapato",
+                "Écharpe",
+                "Bracelete",
+                "Veste",
+                "Conjunto",
+                "Vestido com Modelo",
+            ],
+            help="Selecione o tipo de roupa. 'Vestido com Modelo' = trocar apenas o fundo",
         )
     with col_position:
         if garment_type == "Vestido com Modelo":
             position = "Frente"  # Default, not used for background replacement
-            st.text_input("Posição", value="N/A", disabled=True, help="Não aplicável para troca de fundo")
+            st.text_input(
+                "Posição",
+                value="N/A",
+                disabled=True,
+                help="Não aplicável para troca de fundo",
+            )
         else:
             position = st.selectbox(
                 "Posição (Opcional)",
                 ["Frente", "Costas", "Ambos"],
-                help="Útil para vestidos e peças com frente/costas diferentes. Se não enviar costas, usamos a frente."
+                help="Útil para vestidos e peças com frente/costas diferentes. Se não enviar costas, usamos a frente.",
             )
 
 # --- Conjunto Composition (Conditional) ---
@@ -143,19 +164,19 @@ if garment_type == "Conjunto":
             piece1_type = st.selectbox(
                 "Peça Superior *",
                 ["", "Camisa", "Blusa"],
-                help="Parte de cima do conjunto (obrigatório)"
+                help="Parte de cima do conjunto (obrigatório)",
             )
         with col2:
             piece2_type = st.selectbox(
                 "Peça Inferior *",
                 ["", "Calça", "Saia"],
-                help="Parte de baixo do conjunto (obrigatório)"
+                help="Parte de baixo do conjunto (obrigatório)",
             )
         with col3:
             piece3_type = st.selectbox(
                 "Peça Adicional (Opcional)",
                 ["", "Veste", "Sapato", "Écharpe", "Bracelete", "Colar"],
-                help="Veste, sapato, acessório ou complemento (opcional)"
+                help="Veste, sapato, acessório ou complemento (opcional)",
             )
 
 # --- Model Attributes (Optional) ---
@@ -168,68 +189,81 @@ model_hair_color = None
 model_hair_style = None
 
 with st.expander("👤 Características da Modelo (Opcional)", expanded=False):
-    st.caption("Personalize a aparência da modelo virtual. Se não preencher, usaremos características aleatórias.")
+    st.caption(
+        "Personalize a aparência da modelo virtual. Se não preencher, usaremos características aleatórias."
+    )
 
     col1, col2 = st.columns(2)
     with col1:
         model_height = st.selectbox(
-            "Altura",
-            ["", "Baixa", "Média", "Alta"],
-            help="Estatura da modelo"
+            "Altura", ["", "Baixa", "Média", "Alta"], help="Estatura da modelo"
         )
         model_body_type = st.selectbox(
             "Tipo Físico",
             ["", "Esguia", "Média", "Plus Size"],
-            help="Biotipo da modelo"
+            help="Biotipo da modelo",
         )
         model_skin_tone = st.selectbox(
             "Tom de Pele",
-            ["", "Pele Clara", "Pele Média", "Pele Morena", "Pele Escura", "Pele Negra"],
-            help="Tonalidade de pele"
+            [
+                "",
+                "Pele Clara",
+                "Pele Média",
+                "Pele Morena",
+                "Pele Escura",
+                "Pele Negra",
+            ],
+            help="Tonalidade de pele",
         )
 
     with col2:
         model_hair_length = st.selectbox(
             "Cabelo - Comprimento",
             ["", "Curto", "Médio", "Longo"],
-            help="Comprimento do cabelo"
+            help="Comprimento do cabelo",
         )
         model_hair_texture = st.selectbox(
             "Cabelo - Textura",
             ["", "Liso", "Ondulado", "Cacheado", "Crespo"],
-            help="Textura natural do cabelo"
+            help="Textura natural do cabelo",
         )
         model_hair_color = st.selectbox(
             "Cabelo - Cor",
             ["", "Loiro", "Castanho", "Ruivo", "Preto", "Grisalho"],
-            help="Cor do cabelo"
+            help="Cor do cabelo",
         )
         model_hair_style = st.selectbox(
             "Cabelo - Estilo",
             ["", "Solto", "Preso", "Coque", "Rabo de Cavalo"],
-            help="Estilo do penteado"
+            help="Estilo do penteado",
         )
 
 # --- File Upload Section ---
 # Multi-file upload for Front/Back support or Conjunto pieces
 if garment_type == "Conjunto":
     num_pieces = 2 if not piece3_type else 3
-    st.info(f"📸 Envie {num_pieces} fotos separadas na ordem: 1) {piece1_type or 'Peça Superior'}, 2) {piece2_type or 'Peça Inferior'}" +
-            (f", 3) {piece3_type}" if piece3_type else ""))
+    st.info(
+        f"📸 Envie {num_pieces} fotos separadas na ordem: 1) {piece1_type or 'Peça Superior'}, 2) {piece2_type or 'Peça Inferior'}"
+        + (f", 3) {piece3_type}" if piece3_type else "")
+    )
 elif garment_type == "Vestido com Modelo":
-    st.info("📸 Envie 1 foto do vestido já vestido na modelo. O sistema irá trocar apenas o fundo/ambiente.")
+    st.info(
+        "📸 Envie 1 foto do vestido já vestido na modelo. O sistema irá trocar apenas o fundo/ambiente."
+    )
 else:
     upload_help_text = {
         "Frente": "Envie 1 ou mais fotos da frente",
         "Costas": "Envie 1 ou mais fotos das costas",
-        "Ambos": "Envie 2 fotos: frente e costas (recomendado para vestidos)"
+        "Ambos": "Envie 2 fotos: frente e costas (recomendado para vestidos)",
     }
-    st.info(f"📸 {upload_help_text.get(position, 'Envie as fotos da peça')} • Se não tiver foto das costas, usamos a frente.")
+    st.info(
+        f"📸 {upload_help_text.get(position, 'Envie as fotos da peça')} • Se não tiver foto das costas, usamos a frente."
+    )
 
 uploaded_files = st.file_uploader(
     "Envie fotos da peça (1 ou 2 fotos)",
-    type=['png', 'jpg', 'jpeg', 'heic', 'heif'],
-    accept_multiple_files=True
+    type=["png", "jpg", "jpeg", "heic", "heif"],
+    accept_multiple_files=True,
 )
 
 if st.button("✨ Gerar foto profissional", use_container_width=True):
@@ -240,11 +274,15 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
         elif not garment_type:
             st.error("⚠️ Por favor, selecione o Tipo da Peça")
         elif garment_type == "Conjunto" and (not piece1_type or not piece2_type):
-            st.error("⚠️ Por favor, selecione a Peça Superior e Peça Inferior do conjunto")
+            st.error(
+                "⚠️ Por favor, selecione a Peça Superior e Peça Inferior do conjunto"
+            )
         elif garment_type == "Conjunto":
             expected_photos = 2 if not piece3_type else 3
             if len(uploaded_files) != expected_photos:
-                st.error(f"⚠️ Por favor, envie exatamente {expected_photos} fotos para o conjunto ({len(uploaded_files)} enviada(s))")
+                st.error(
+                    f"⚠️ Por favor, envie exatamente {expected_photos} fotos para o conjunto ({len(uploaded_files)} enviada(s))"
+                )
             else:
                 # Conjunto validation passed - proceed with generation
                 with st.spinner("Banana Pro is generating your image..."):
@@ -268,7 +306,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                 conjunto_data = {
                                     "piece1_type": piece1_type,
                                     "piece2_type": piece2_type,
-                                    "piece3_type": piece3_type
+                                    "piece3_type": piece3_type,
                                 }
 
                             # Prepare model attributes (for session state)
@@ -279,7 +317,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                 "hair_length": model_hair_length,
                                 "hair_texture": model_hair_texture,
                                 "hair_color": model_hair_color,
-                                "hair_style": model_hair_style
+                                "hair_style": model_hair_style,
                             }
                             # Filter out empty values
                             model_attrs = {k: v for k, v in model_attrs.items() if v}
@@ -298,18 +336,24 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                 garment_number=garment_number.strip(),
                                 garment_type=garment_type,
                                 position=position,
-                                piece1_type=piece1_type if garment_type == "Conjunto" else None,
-                                piece2_type=piece2_type if garment_type == "Conjunto" else None,
-                                piece3_type=piece3_type if garment_type == "Conjunto" and piece3_type else None
+                                piece1_type=piece1_type
+                                if garment_type == "Conjunto"
+                                else None,
+                                piece2_type=piece2_type
+                                if garment_type == "Conjunto"
+                                else None,
+                                piece3_type=piece3_type
+                                if garment_type == "Conjunto" and piece3_type
+                                else None,
                             )
 
-                            if 'url' in result:
+                            if "url" in result:
                                 # Production mode: Fetch from URL
-                                response = requests.get(result['url'])
+                                response = requests.get(result["url"])
                                 image_bytes = response.content
                             else:
                                 # Local mode: Use returned bytes
-                                image_bytes = result['image_bytes']
+                                image_bytes = result["image_bytes"]
                         else:
                             # DIRECT ENGINE MODE (current behavior)
                             # 1. Handle multiple temp files for the engine
@@ -320,7 +364,9 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                     f.write(uploaded_file.getbuffer())
 
                                 # Convert HEIC to PNG if needed
-                                if uploaded_file.name.lower().endswith(('.heic', '.heif')):
+                                if uploaded_file.name.lower().endswith(
+                                    (".heic", ".heif")
+                                ):
                                     try:
                                         from PIL import Image
                                         from pillow_heif import register_heif_opener
@@ -330,7 +376,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
 
                                         # Convert to PNG
                                         png_name = f"temp_{idx}_converted.png"
-                                        img.save(png_name, format='PNG')
+                                        img.save(png_name, format="PNG")
 
                                         # Remove HEIC and use PNG
                                         os.remove(temp_name)
@@ -347,7 +393,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                 conjunto_data = {
                                     "piece1_type": piece1_type,
                                     "piece2_type": piece2_type,
-                                    "piece3_type": piece3_type
+                                    "piece3_type": piece3_type,
                                 }
 
                             # 2.5. Prepare model attributes if provided
@@ -358,7 +404,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                 "hair_length": model_hair_length,
                                 "hair_texture": model_hair_texture,
                                 "hair_color": model_hair_color,
-                                "hair_style": model_hair_style
+                                "hair_style": model_hair_style,
                             }
                             # Filter out empty values
                             model_attrs = {k: v for k, v in model_attrs.items() if v}
@@ -372,7 +418,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                 garment_type=garment_type,
                                 position=position,
                                 conjunto_pieces=conjunto_data,
-                                model_attributes=model_attrs if model_attrs else None
+                                model_attributes=model_attrs if model_attrs else None,
                             )
 
                             # 3. Handle result data for Download/Drive
@@ -406,7 +452,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                             "conjunto_data": conjunto_data,
                             "model_attrs": model_attrs if model_attrs else None,
                             "selected_env_label": selected_env_label,
-                            "selected_act_label": selected_act_label
+                            "selected_act_label": selected_act_label,
                         }
 
                     except Exception as e:
@@ -415,7 +461,9 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
             # Non-conjunto items
             # Optional: Show info if user selected "Ambos" but only uploaded 1 photo
             if position == "Ambos" and len(uploaded_files) == 1:
-                st.info("ℹ️ Você selecionou 'Ambos' mas enviou apenas 1 foto. Vamos usar a mesma foto para frente e costas.")
+                st.info(
+                    "ℹ️ Você selecionou 'Ambos' mas enviou apenas 1 foto. Vamos usar a mesma foto para frente e costas."
+                )
 
             with st.spinner("Banana Pro is generating your image..."):
                 try:
@@ -443,7 +491,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                             "hair_length": model_hair_length,
                             "hair_texture": model_hair_texture,
                             "hair_color": model_hair_color,
-                            "hair_style": model_hair_style
+                            "hair_style": model_hair_style,
                         }
                         # Filter out empty values
                         model_attrs = {k: v for k, v in model_attrs.items() if v}
@@ -461,16 +509,16 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                             activity=act_value,
                             garment_number=garment_number.strip(),
                             garment_type=garment_type,
-                            position=position
+                            position=position,
                         )
 
-                        if 'url' in result:
+                        if "url" in result:
                             # Production mode: Fetch from URL
-                            response = requests.get(result['url'])
+                            response = requests.get(result["url"])
                             image_bytes = response.content
                         else:
                             # Local mode: Use returned bytes
-                            image_bytes = result['image_bytes']
+                            image_bytes = result["image_bytes"]
                     else:
                         # DIRECT ENGINE MODE (current behavior)
                         # 1. Handle multiple temp files for the engine
@@ -481,7 +529,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                                 f.write(uploaded_file.getbuffer())
 
                             # Convert HEIC to PNG if needed
-                            if uploaded_file.name.lower().endswith(('.heic', '.heif')):
+                            if uploaded_file.name.lower().endswith((".heic", ".heif")):
                                 try:
                                     from PIL import Image
                                     from pillow_heif import register_heif_opener
@@ -491,7 +539,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
 
                                     # Convert to PNG
                                     png_name = f"temp_{idx}_converted.png"
-                                    img.save(png_name, format='PNG')
+                                    img.save(png_name, format="PNG")
 
                                     # Remove HEIC and use PNG
                                     os.remove(temp_name)
@@ -513,7 +561,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                             "hair_length": model_hair_length,
                             "hair_texture": model_hair_texture,
                             "hair_color": model_hair_color,
-                            "hair_style": model_hair_style
+                            "hair_style": model_hair_style,
                         }
                         # Filter out empty values
                         model_attrs = {k: v for k, v in model_attrs.items() if v}
@@ -527,7 +575,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                             garment_type=garment_type,
                             position=position,
                             conjunto_pieces=conjunto_data,
-                            model_attributes=model_attrs if model_attrs else None
+                            model_attributes=model_attrs if model_attrs else None,
                         )
 
                         # 3. Handle result data for Download/Drive
@@ -561,7 +609,7 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
                         "conjunto_data": conjunto_data,
                         "model_attrs": model_attrs if model_attrs else None,
                         "selected_env_label": selected_env_label,
-                        "selected_act_label": selected_act_label
+                        "selected_act_label": selected_act_label,
                     }
 
                 except Exception as e:
@@ -570,17 +618,29 @@ if st.button("✨ Gerar foto profissional", use_container_width=True):
         st.error("Por favor, envie pelo menos uma foto da peça.")
 
 # --- FEEDBACK SECTION (Always visible after any generation) ---
-if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes and "last_params" in st.session_state:
+if (
+    "last_image_bytes" in st.session_state
+    and st.session_state.last_image_bytes
+    and "last_params" in st.session_state
+):
     st.divider()
 
     # Display the last generated image persistently
     params = st.session_state.last_params
-    st.image(st.session_state.last_image_bytes, caption=f"{params['selected_env_label']} | {params['selected_act_label']}")
+    st.image(
+        st.session_state.last_image_bytes,
+        caption=f"{params['selected_env_label']} | {params['selected_act_label']}",
+    )
 
     # Actions: Download & Drive
     from src.engine import TYPE_NORMALIZATION
-    normalized_type = TYPE_NORMALIZATION.get(params["garment_type"].lower(), params["garment_type"].lower())
-    download_filename = f"cabide_{params['garment_number'].strip()}_{normalized_type}.png"
+
+    normalized_type = TYPE_NORMALIZATION.get(
+        params["garment_type"].lower(), params["garment_type"].lower()
+    )
+    download_filename = (
+        f"cabide_{params['garment_number'].strip()}_{normalized_type}.png"
+    )
 
     col_down, col_drive = st.columns(2)
 
@@ -590,27 +650,35 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
             data=st.session_state.last_image_bytes,
             file_name=download_filename,
             mime="image/png",
-            use_container_width=True
+            use_container_width=True,
         )
 
     with col_drive:
         if drive_manager:
             # Generate unique key for this specific image using hash of bytes
             import hashlib
+
             image_hash = hashlib.md5(st.session_state.last_image_bytes).hexdigest()[:8]
             drive_url_key = f"drive_url_{download_filename}_{image_hash}"
 
             if drive_url_key in st.session_state:
                 # Already uploaded - show link
-                st.link_button("✅ View on Google Drive", st.session_state[drive_url_key], use_container_width=True)
+                st.link_button(
+                    "✅ View on Google Drive",
+                    st.session_state[drive_url_key],
+                    use_container_width=True,
+                )
             else:
                 # Not uploaded yet - show upload button
-                if st.button("📤 Save to Store Drive", use_container_width=True, key=f"drive_btn_{image_hash}"):
+                if st.button(
+                    "📤 Save to Store Drive",
+                    use_container_width=True,
+                    key=f"drive_btn_{image_hash}",
+                ):
                     with st.spinner("Uploading..."):
                         try:
                             drive_url = drive_manager.upload_file(
-                                st.session_state.last_image_bytes,
-                                download_filename
+                                st.session_state.last_image_bytes, download_filename
                             )
                             # Store URL in session state
                             st.session_state[drive_url_key] = drive_url
@@ -619,7 +687,9 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
                         except Exception as e:
                             st.error(f"Upload failed: {e}")
         else:
-            st.button("📤 Drive Not Configured", disabled=True, use_container_width=True)
+            st.button(
+                "📤 Drive Not Configured", disabled=True, use_container_width=True
+            )
 
     st.divider()
     st.subheader("💬 Quer melhorar a imagem?")
@@ -628,10 +698,14 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
         "O que você gostaria de ajustar?",
         placeholder="Ex: 'Colocar em festa, em vez de praia'",
         height=80,
-        key="feedback_text"
+        key="feedback_text",
     )
 
-    if st.button("🔄 Regenerar com Feedback", use_container_width=True, disabled=not feedback_text):
+    if st.button(
+        "🔄 Regenerar com Feedback",
+        use_container_width=True,
+        disabled=not feedback_text,
+    ):
         with st.spinner("Regenerando com seu feedback..."):
             try:
                 # Get parameters from session state
@@ -649,7 +723,9 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
                         with open(temp_path, "rb") as f:
                             image_buffer = io.BytesIO(f.read())
                             image_buffer.seek(0)
-                            image_files.append((os.path.basename(temp_path), image_buffer))
+                            image_files.append(
+                                (os.path.basename(temp_path), image_buffer)
+                            )
 
                     # Get conjunto data if applicable
                     conjunto_data = params.get("conjunto_data")
@@ -662,18 +738,24 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
                         garment_type=params["garment_type"],
                         position=params["position"],
                         feedback=feedback_text,
-                        piece1_type=conjunto_data.get("piece1_type") if conjunto_data else None,
-                        piece2_type=conjunto_data.get("piece2_type") if conjunto_data else None,
-                        piece3_type=conjunto_data.get("piece3_type") if conjunto_data else None
+                        piece1_type=conjunto_data.get("piece1_type")
+                        if conjunto_data
+                        else None,
+                        piece2_type=conjunto_data.get("piece2_type")
+                        if conjunto_data
+                        else None,
+                        piece3_type=conjunto_data.get("piece3_type")
+                        if conjunto_data
+                        else None,
                     )
 
-                    if 'url' in result:
+                    if "url" in result:
                         # Production mode: Fetch from URL
-                        response = requests.get(result['url'])
+                        response = requests.get(result["url"])
                         image_bytes_feedback = response.content
                     else:
                         # Local mode: Use returned bytes
-                        image_bytes_feedback = result['image_bytes']
+                        image_bytes_feedback = result["image_bytes"]
                 else:
                     # DIRECT ENGINE MODE
                     result_feedback = engine.generate_lifestyle_photo(
@@ -685,7 +767,7 @@ if "last_image_bytes" in st.session_state and st.session_state.last_image_bytes 
                         position=params["position"],
                         conjunto_pieces=params.get("conjunto_data"),
                         model_attributes=params.get("model_attrs"),
-                        feedback=feedback_text
+                        feedback=feedback_text,
                     )
 
                     # Handle result

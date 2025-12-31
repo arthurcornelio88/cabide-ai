@@ -2,11 +2,12 @@ import io
 import logging
 import re
 from datetime import datetime
+
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
-from google.oauth2 import service_account
 
 logger = logging.getLogger("DriveService")
+
 
 class DriveService:
     def __init__(self, credentials, folder_id: str):
@@ -19,7 +20,7 @@ class DriveService:
         """
         self.folder_id = folder_id
         self.creds = credentials
-        self.service = build('drive', 'v3', credentials=self.creds)
+        self.service = build("drive", "v3", credentials=self.creds)
         self._folder_cache = {}  # Cache for folder IDs by date
         logger.info("DriveService initialized successfully")
 
@@ -30,31 +31,30 @@ class DriveService:
         """
         # Search for existing folder with this name
         query = f"name='{folder_name}' and '{parent_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"
-        results = self.service.files().list(
-            q=query,
-            spaces='drive',
-            fields='files(id, name)'
-        ).execute()
+        results = (
+            self.service.files()
+            .list(q=query, spaces="drive", fields="files(id, name)")
+            .execute()
+        )
 
-        folders = results.get('files', [])
+        folders = results.get("files", [])
 
         if folders:
             # Folder exists
-            folder_id = folders[0]['id']
+            folder_id = folders[0]["id"]
             logger.info(f"Found existing folder: {folder_name} (ID: {folder_id})")
             return folder_id
         else:
             # Create new folder
             folder_metadata = {
-                'name': folder_name,
-                'mimeType': 'application/vnd.google-apps.folder',
-                'parents': [parent_id]
+                "name": folder_name,
+                "mimeType": "application/vnd.google-apps.folder",
+                "parents": [parent_id],
             }
-            folder = self.service.files().create(
-                body=folder_metadata,
-                fields='id'
-            ).execute()
-            folder_id = folder.get('id')
+            folder = (
+                self.service.files().create(body=folder_metadata, fields="id").execute()
+            )
+            folder_id = folder.get("id")
             logger.info(f"Created new folder: {folder_name} (ID: {folder_id})")
             return folder_id
 
@@ -74,7 +74,7 @@ class DriveService:
         date_folder_id = self._get_or_create_folder(today, self.folder_id)
 
         # Step 2: Create/get output folder inside date folder
-        output_folder_id = self._get_or_create_folder('output', date_folder_id)
+        output_folder_id = self._get_or_create_folder("output", date_folder_id)
 
         # Cache the result
         self._folder_cache[cache_key] = output_folder_id
@@ -90,24 +90,24 @@ class DriveService:
             - cabide_100_vestido.png -> cabide_100_vestido_v2.png (if v1 exists)
         """
         # Extract name and extension
-        name_parts = base_filename.rsplit('.', 1)
+        name_parts = base_filename.rsplit(".", 1)
         if len(name_parts) == 2:
             base_name, extension = name_parts
         else:
             base_name = base_filename
-            extension = ''
+            extension = ""
 
         # Search for files with similar names in the folder
         # Pattern: base_name, base_name_v0, base_name_v1, etc.
         query = f"name contains '{base_name}' and '{folder_id}' in parents and trashed=false"
-        results = self.service.files().list(
-            q=query,
-            spaces='drive',
-            fields='files(id, name)'
-        ).execute()
+        results = (
+            self.service.files()
+            .list(q=query, spaces="drive", fields="files(id, name)")
+            .execute()
+        )
 
-        existing_files = results.get('files', [])
-        existing_names = [f['name'] for f in existing_files]
+        existing_files = results.get("files", [])
+        existing_names = [f["name"] for f in existing_files]
 
         # Check if base filename exists
         full_base_name = f"{base_name}.{extension}" if extension else base_name
@@ -130,7 +130,11 @@ class DriveService:
             next_version = 1
 
         # Return versioned filename
-        versioned_name = f"{base_name}_v{next_version}.{extension}" if extension else f"{base_name}_v{next_version}"
+        versioned_name = (
+            f"{base_name}_v{next_version}.{extension}"
+            if extension
+            else f"{base_name}_v{next_version}"
+        )
         logger.info(f"File exists, using versioned name: {versioned_name}")
         return versioned_name
 
@@ -154,24 +158,21 @@ class DriveService:
             final_filename = self._get_versioned_filename(date_folder_id, filename)
 
             # Upload file
-            file_metadata = {
-                'name': final_filename,
-                'parents': [date_folder_id]
-            }
+            file_metadata = {"name": final_filename, "parents": [date_folder_id]}
             media = MediaIoBaseUpload(
-                io.BytesIO(file_bytes),
-                mimetype='image/png',
-                resumable=True
+                io.BytesIO(file_bytes), mimetype="image/png", resumable=True
             )
 
-            file = self.service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields='id, webViewLink'
-            ).execute()
+            file = (
+                self.service.files()
+                .create(body=file_metadata, media_body=media, fields="id, webViewLink")
+                .execute()
+            )
 
-            logger.info(f"File uploaded to Drive: {final_filename} (ID: {file.get('id')})")
-            return file.get('webViewLink')
+            logger.info(
+                f"File uploaded to Drive: {final_filename} (ID: {file.get('id')})"
+            )
+            return file.get("webViewLink")
         except Exception as e:
             logger.error(f"Drive upload failed: {e}")
             raise

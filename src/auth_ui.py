@@ -2,7 +2,9 @@
 Authentication UI components for Streamlit.
 Provides login, logout, and user info display.
 """
+
 import streamlit as st
+
 from src.oauth_helper import UnifiedOAuthHelper
 
 
@@ -18,7 +20,9 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
     """
     st.markdown("---")
     st.subheader("🔐 Login Necessário")
-    st.info("Para usar o Google Drive e a API, você precisa fazer login com sua conta Google.")
+    st.info(
+        "Para usar o Google Drive e a API, você precisa fazer login com sua conta Google."
+    )
 
     # Initialize session state for auth URL
     if "oauth_auth_url" not in st.session_state:
@@ -26,7 +30,9 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
 
     # Step 1: Generate and show auth URL
     if st.session_state.oauth_auth_url is None:
-        if st.button("🔑 Gerar Link de Login", use_container_width=True, type="primary"):
+        if st.button(
+            "🔑 Gerar Link de Login", use_container_width=True, type="primary"
+        ):
             try:
                 # Generate auth URL without starting server
                 auth_url, _ = oauth_helper.get_auth_url()
@@ -41,36 +47,45 @@ def show_login_ui(oauth_helper: UnifiedOAuthHelper):
         st.markdown("1. **Clique no link abaixo** para abrir o Google:")
 
         # Show clickable link
-        st.markdown(f"### 🔗 [{st.session_state.oauth_auth_url}]({st.session_state.oauth_auth_url})")
+        st.markdown(
+            f"### 🔗 [{st.session_state.oauth_auth_url}]({st.session_state.oauth_auth_url})"
+        )
 
         st.markdown("2. **Faça login** com sua conta Google")
         st.markdown("3. **Autorize** o acesso ao Cabide AI")
         st.markdown("4. Você será redirecionado para `http://localhost:8080`")
-        st.markdown("5. **Copie a URL completa** da barra de endereço (começa com `http://localhost:8080/?code=...`)")
+        st.markdown(
+            "5. **Copie a URL completa** da barra de endereço (começa com `http://localhost:8080/?code=...`)"
+        )
         st.markdown("6. **Cole abaixo**:")
 
         # Input for redirect URL
         redirect_url = st.text_input(
             "Cole a URL completa aqui:",
             placeholder="http://localhost:8080/?code=4/0A...&scope=...",
-            key="redirect_url_input"
+            key="redirect_url_input",
         )
 
         col1, col2 = st.columns(2)
 
         with col1:
-            if st.button("✅ Confirmar", use_container_width=True, disabled=not redirect_url):
+            if st.button(
+                "✅ Confirmar", use_container_width=True, disabled=not redirect_url
+            ):
                 try:
                     with st.spinner("Autenticando..."):
                         # Extract code from URL
                         import urllib.parse
+
                         parsed = urllib.parse.urlparse(redirect_url)
                         params = urllib.parse.parse_qs(parsed.query)
 
-                        if 'code' not in params:
-                            st.error("❌ URL inválida. Certifique-se de copiar a URL completa!")
+                        if "code" not in params:
+                            st.error(
+                                "❌ URL inválida. Certifique-se de copiar a URL completa!"
+                            )
                         else:
-                            code = params['code'][0]
+                            code = params["code"][0]
 
                             # Create new flow and exchange code
                             _, flow = oauth_helper.get_auth_url()

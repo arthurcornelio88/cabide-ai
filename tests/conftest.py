@@ -1,11 +1,11 @@
 """
 Pytest fixtures for Cabide AI tests.
 """
-import os
-import pytest
-from pathlib import Path
-from PIL import Image
+
 from io import BytesIO
+
+import pytest
+from PIL import Image
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def test_env_vars(monkeypatch):
 @pytest.fixture
 def sample_image():
     """Create a sample test image."""
-    img = Image.new('RGB', (100, 100), color='red')
+    img = Image.new("RGB", (100, 100), color="red")
     return img
 
 
@@ -29,7 +29,7 @@ def sample_image():
 def sample_image_bytes(sample_image):
     """Get sample image as bytes."""
     buffer = BytesIO()
-    sample_image.save(buffer, format='PNG')
+    sample_image.save(buffer, format="PNG")
     buffer.seek(0)
     return buffer.getvalue()
 

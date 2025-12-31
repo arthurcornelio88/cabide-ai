@@ -2,15 +2,20 @@
 API Client for Cabide AI Frontend.
 Handles communication between Streamlit UI and FastAPI backend.
 """
+
+from typing import BinaryIO, Optional
+
 import requests
-from typing import Optional, BinaryIO
+
 from src.config import get_settings
 
 
 class CabideAPIClient:
     """Client for interacting with Cabide AI FastAPI backend."""
 
-    def __init__(self, base_url: Optional[str] = None, access_token: Optional[str] = None):
+    def __init__(
+        self, base_url: Optional[str] = None, access_token: Optional[str] = None
+    ):
         """
         Initialize API client.
 
@@ -26,7 +31,7 @@ class CabideAPIClient:
         # Prepare headers with authentication
         self.headers = {}
         if self.access_token:
-            self.headers['Authorization'] = f'Bearer {self.access_token}'
+            self.headers["Authorization"] = f"Bearer {self.access_token}"
 
     def health_check(self) -> dict:
         """
@@ -38,7 +43,9 @@ class CabideAPIClient:
         Raises:
             requests.RequestException: If request fails
         """
-        response = requests.get(f"{self.base_url}/health", headers=self.headers, timeout=5)
+        response = requests.get(
+            f"{self.base_url}/health", headers=self.headers, timeout=5
+        )
         response.raise_for_status()
         return response.json()
 
@@ -53,7 +60,7 @@ class CabideAPIClient:
         feedback: str = None,
         piece1_type: str = None,
         piece2_type: str = None,
-        piece3_type: str = None
+        piece3_type: str = None,
     ) -> dict:
         """
         Generate lifestyle photo via backend API.
@@ -81,43 +88,43 @@ class CabideAPIClient:
             image_files = [image_files]
 
         # Prepare files for upload
-        files = [('files', (filename, file_obj, 'image/png')) for filename, file_obj in image_files]
+        files = [
+            ("files", (filename, file_obj, "image/png"))
+            for filename, file_obj in image_files
+        ]
 
-        data = {'env': environment}
+        data = {"env": environment}
 
         # Add metadata if provided
         if garment_number:
-            data['garment_number'] = garment_number
+            data["garment_number"] = garment_number
         if garment_type:
-            data['garment_type'] = garment_type
+            data["garment_type"] = garment_type
         if position:
-            data['position'] = position
+            data["position"] = position
         if feedback:
-            data['feedback'] = feedback
+            data["feedback"] = feedback
         if piece1_type:
-            data['piece1_type'] = piece1_type
+            data["piece1_type"] = piece1_type
         if piece2_type:
-            data['piece2_type'] = piece2_type
+            data["piece2_type"] = piece2_type
         if piece3_type:
-            data['piece3_type'] = piece3_type
+            data["piece3_type"] = piece3_type
 
         response = requests.post(
             f"{self.base_url}/generate",
             files=files,
             data=data,
             headers=self.headers,
-            timeout=180  # 3 minutes - Gemini can take time, especially for conjuntos
+            timeout=180,  # 3 minutes - Gemini can take time, especially for conjuntos
         )
         response.raise_for_status()
 
         # Handle both JSON response (prod) and file response (local)
-        content_type = response.headers.get('content-type', '')
+        content_type = response.headers.get("content-type", "")
 
-        if 'application/json' in content_type:
+        if "application/json" in content_type:
             return response.json()
         else:
             # Local mode returns image file
-            return {
-                'image_bytes': response.content,
-                'content_type': content_type
-            }
+            return {"image_bytes": response.content, "content_type": content_type}

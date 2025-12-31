@@ -1,10 +1,12 @@
 """
 Tests for FastAPI endpoints.
 """
+
+from io import BytesIO
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch
-from io import BytesIO
 
 from src.api import app
 
@@ -17,8 +19,8 @@ def client():
 
 def test_health_endpoint_returns_200(client, test_env_vars):
     """Test health check endpoint returns 200."""
-    with patch('src.api.genai.configure'):
-        with patch('src.api.genai.list_models', return_value=[]):
+    with patch("src.api.genai.configure"):
+        with patch("src.api.genai.list_models", return_value=[]):
             response = client.get("/health")
 
             assert response.status_code == 200
@@ -30,9 +32,9 @@ def test_health_endpoint_returns_200(client, test_env_vars):
 @pytest.mark.skip(reason="OAuth authentication blocks endpoint - needs mock refactor")
 def test_generate_endpoint_rejects_invalid_file_type(client, test_env_vars):
     """Test generate endpoint rejects invalid file types."""
-    files = {'file': ('test.txt', BytesIO(b'not an image'), 'text/plain')}
+    files = {"file": ("test.txt", BytesIO(b"not an image"), "text/plain")}
     # Mock OAuth verification to bypass authentication
-    with patch('src.api.verify_oauth_token', return_value=True):
+    with patch("src.api.verify_oauth_token", return_value=True):
         response = client.post("/generate", files=files)
 
     assert response.status_code == 400
@@ -44,7 +46,7 @@ def test_generate_endpoint_requires_filename(client, test_env_vars):
     """Test generate endpoint requires filename."""
     # FastAPI validation will catch this
     # Mock OAuth to bypass authentication
-    with patch('src.api.verify_oauth_token', return_value=True):
+    with patch("src.api.verify_oauth_token", return_value=True):
         response = client.post("/generate")
 
     assert response.status_code == 422  # Validation error
