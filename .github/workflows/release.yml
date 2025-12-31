@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get commits since last tag
+          PREV_TAG=$(git describe --abbrev=0 --tags $(git rev-list --tags --skip=1 --max-count=1) 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## What's Changed
+
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ## Deployment
+
+            - **Backend**: Deployed to Cloud Run (São Paulo region)
+            - **Frontend**: Deployed to Streamlit Cloud
+            - **Version**: ${{ steps.get_version.outputs.VERSION }}
+
+            ## Installation
+
+            ```bash
+            git clone -b ${{ github.ref_name }} https://github.com/arthurcornelio88/cabide-ai.git
+            cd cabide-ai
+            uv sync
+            ```
+
+            See [README.md](https://github.com/arthurcornelio88/cabide-ai#readme) for complete setup instructions.
+          draft: false
+          prerelease: false
+
+  deploy-backend:
+    name: Deploy Backend to Cloud Run
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Authenticate with GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker southamerica-east1-docker.pkg.dev
+
+      - name: Build and Push Docker Image
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          IMAGE_URL=southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-ai/backend:${VERSION}
+          IMAGE_LATEST=southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-ai/backend:latest
+
+          docker build -f Dockerfile.backend -t ${IMAGE_URL} -t ${IMAGE_LATEST} .
+          docker push ${IMAGE_URL}
+          docker push ${IMAGE_LATEST}
+
+      - name: Deploy to Cloud Run
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          gcloud run deploy cabide-api \
+            --image southamerica-east1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cabide-ai/backend:${VERSION} \
+            --region southamerica-east1 \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }} \
+            --update-labels version=${VERSION//\./-}
