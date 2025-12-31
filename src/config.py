@@ -17,9 +17,8 @@ class Settings(BaseSettings):
     # API Keys
     gemini_api_key: str = Field(..., validation_alias="GEMINI_API_KEY")
 
-    # Storage Configuration
+    # Storage Configuration (GCS removed - using local + Drive only)
     storage_mode: str = Field(default="local", validation_alias="STORAGE_MODE")
-    gcs_bucket_name: str = Field(default="cabide-catalog-br", validation_alias="GCS_BUCKET_NAME")
 
     # Google Drive Integration
     gdrive_folder_id: str = Field(default="", validation_alias="GDRIVE_FOLDER_ID")
@@ -60,9 +59,8 @@ class Settings(BaseSettings):
     @field_validator("storage_mode")
     @classmethod
     def validate_storage_mode(cls, v: str) -> str:
-        if v not in ["local", "prod"]:
-            raise ValueError("storage_mode must be 'local' or 'prod'")
-        return v
+        # Force local mode - GCS disabled
+        return "local"
 
     @field_validator("gcp_service_account_json")
     @classmethod

@@ -267,16 +267,7 @@ async def generate_model_photo(
             feedback=feedback
         )
 
-        # Response based on Storage Mode
-        if settings.storage_mode == "prod":
-            return JSONResponse(content={
-                "job_id": job_id,
-                "url": result_path_or_url,
-                "region": "southamerica-east1",
-                "environment": env
-            })
-
-        # Return file for local mode
+        # Always return file (GCS disabled - using Drive for permanent storage)
         if not os.path.exists(result_path_or_url):
             raise HTTPException(
                 status_code=500,
@@ -307,9 +298,9 @@ async def generate_model_photo(
 async def health_check(settings: Settings = Depends(get_settings)):
     """
     Health check with actual connectivity verification.
-    Tests Gemini API and GCS if in prod mode.
+    Tests Gemini API only (GCS disabled - using Drive for storage).
     """
-    checks = {"gemini": False, "storage": False}
+    checks = {"gemini": False, "storage": True}
 
     # Check Gemini API
     try:
@@ -320,18 +311,8 @@ async def health_check(settings: Settings = Depends(get_settings)):
     except Exception as e:
         logger.warning(f"Gemini health check failed: {e}")
 
-    # Check Storage
-    if settings.storage_mode == "prod":
-        try:
-            from google.cloud import storage
-            client = storage.Client()
-            bucket = client.bucket(settings.gcs_bucket_name)
-            bucket.exists()  # Verify bucket is accessible
-            checks["storage"] = True
-        except Exception as e:
-            logger.warning(f"GCS health check failed: {e}")
-    else:
-        checks["storage"] = True  # Local mode always "healthy"
+    # Storage check - always healthy (local + Drive)
+    checks["storage"] = True
 
     status = "healthy" if all(checks.values()) else "degraded"
 

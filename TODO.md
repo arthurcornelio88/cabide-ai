@@ -22,11 +22,14 @@
    - tipo: crespo, liso
    - cor : loiro, castanho, ruivo, preto
 
-# 8 google drive upload
+# [x] 8 google drive upload
 
-# 9 securiser api
+# 9 [x] securiser api e drive com oauth
 
-# 10 deploy in streamlit cloud / cloudrun !
+# [ ] 10 desativar buckets - ficar somente no drive
+ - 📍 Region: Brazil (southamerica-east1) | Storage: LOCAL : desnecessario
+
+# [ ] 11 deploy in streamlit cloud / cloudrun !
 
 # 9 a fazer
 

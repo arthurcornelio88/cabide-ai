@@ -72,7 +72,6 @@ if settings.backend_url:
 # --- UI Header ---
 st.title("👗 Cabide AI")
 st.markdown("### Gerador de Catálogo Profissional para o Cabide da Ieié")
-st.info(f"📍 Region: Brazil (southamerica-east1) | Storage: **{settings.storage_mode.upper()}**")
 
 # --- UI Controls ---
 with st.expander("🎨 Scene Customization", expanded=True):

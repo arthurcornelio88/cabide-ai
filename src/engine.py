@@ -8,7 +8,6 @@ from io import BytesIO
 from typing import Union, List, Optional
 
 from PIL import Image
-from google.cloud import storage
 import google.generativeai as genai
 
 # Register HEIC support for PIL
@@ -50,13 +49,9 @@ class FashionEngine:
         genai.configure(api_key=self.settings.gemini_api_key)
         self.model = genai.GenerativeModel('gemini-3-pro-image-preview')
 
-        if self.settings.storage_mode == "prod":
-            self.storage_client = storage.Client()
-            self.bucket = self.storage_client.bucket(self.settings.gcs_bucket_name)
-            logger.info("FashionEngine initialized in PROD mode with GCS")
-        else:
-            self.settings.output_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"FashionEngine initialized in LOCAL mode, output_dir={self.settings.output_dir}")
+        # Always use local storage (GCS disabled - using Drive for permanent storage)
+        self.settings.output_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"FashionEngine initialized - output_dir={self.settings.output_dir}")
 
     def _normalize_garment_type(self, garment_type: Optional[str]) -> str:
         """Normalize garment type to Portuguese."""
@@ -82,16 +77,10 @@ class FashionEngine:
         return match.group(1).strip() if match else ""
 
     def _save_image(self, pil_image: Image.Image, filename: str) -> str:
-        if self.settings.storage_mode == "prod":
-            blob = self.bucket.blob(f"generated/{filename}")
-            img_byte_arr = BytesIO()
-            pil_image.save(img_byte_arr, format='PNG')
-            blob.upload_from_string(img_byte_arr.getvalue(), content_type='image/png')
-            return blob.public_url
-        else:
-            local_path = self.settings.output_dir / filename
-            pil_image.save(local_path)
-            return str(local_path.absolute())
+        """Save image locally (GCS disabled - use Drive for permanent storage)"""
+        local_path = self.settings.output_dir / filename
+        pil_image.save(local_path)
+        return str(local_path.absolute())
 
     def generate_lifestyle_photo(
         self,
