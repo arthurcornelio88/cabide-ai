@@ -1,6 +1,6 @@
 [project]
 name = "cabide-ai"
-version = "1.1.0"
+version = "1.2.0"
 description = "Scalable AI fashion pipeline for Cabide da Ieie"
 dependencies = [
     "python-dotenv>=1.0.1",
