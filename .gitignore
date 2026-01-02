@@ -56,3 +56,5 @@ tasks.md
 # Temporary files
 *.tmp
 *.bak
+test_curl.sh
+test_curl.sh
