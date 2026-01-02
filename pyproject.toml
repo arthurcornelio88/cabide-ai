@@ -3,7 +3,6 @@ name = "cabide-ai"
 version = "1.1.0"
 description = "Scalable AI fashion pipeline for Cabide da Ieie"
 dependencies = [
-    "google-generativeai>=0.8.0",
     "python-dotenv>=1.0.1",
     "pillow>=10.0.0",
     "fastapi>=0.110.0",
@@ -17,6 +16,7 @@ dependencies = [
     "requests>=2.31.0",
     "google-cloud-storage>=2.14.0",
     "pillow-heif>=1.1.1",
+    "google-genai>=1.55.0",
 ]
 readme = "README.md"
 requires-python = ">=3.11"

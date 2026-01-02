@@ -4,11 +4,20 @@ import shutil
 import uuid
 from typing import Annotated, Optional
 
-import google.generativeai as genai
 import requests
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from google import genai
+from PIL import Image
 from pydantic import BaseModel
+
+# Register HEIC support globally (needed for PIL.Image.open to work with HEIC)
+try:
+    from pillow_heif import register_heif_opener
+
+    register_heif_opener()
+except ImportError:
+    pass  # HEIC support not available
 
 from src.config import Settings, get_settings
 from src.engine import FashionEngine
@@ -21,7 +30,7 @@ class HealthResponse(BaseModel):
     status: str
     model: str
     storage_mode: str
-    version: str = "1.1.0"
+    version: str = "1.2.0"
 
 
 # --- Initialization ---
@@ -89,6 +98,48 @@ async def verify_oauth_token(authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Failed to verify OAuth token")
 
 
+def _preprocess_image(image_path: str, settings: Settings) -> str:
+    """
+    Preprocess image for Gemini 3 optimization:
+    - Resize to max_image_dimension (1536px for MEDIUM)
+    - Convert to JPEG with quality setting
+    - Save back to same path with .jpg extension
+
+    Args:
+        image_path: Path to the image file
+        settings: Application settings with image processing config
+
+    Returns:
+        Path to the processed JPEG file
+    """
+    img = Image.open(image_path)
+
+    # Convert RGBA to RGB if needed (JPEG doesn't support transparency)
+    if img.mode == "RGBA":
+        rgb_img = Image.new("RGB", img.size, (255, 255, 255))
+        rgb_img.paste(img, mask=img.split()[3])  # Use alpha channel as mask
+        img = rgb_img
+    elif img.mode != "RGB":
+        img = img.convert("RGB")
+
+    # Resize if needed (maintain aspect ratio)
+    max_dim = settings.max_image_dimension
+    if max(img.size) > max_dim:
+        ratio = max_dim / max(img.size)
+        new_size = tuple(int(dim * ratio) for dim in img.size)
+        img = img.resize(new_size, Image.Resampling.LANCZOS)
+
+    # Save as JPEG
+    jpg_path = os.path.splitext(image_path)[0] + ".jpg"
+    img.save(jpg_path, format="JPEG", quality=settings.image_quality, optimize=True)
+
+    # Remove original if different
+    if jpg_path != image_path and os.path.exists(image_path):
+        os.remove(image_path)
+
+    return jpg_path
+
+
 def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | None]:
     """
     Extract garment_number and garment_type from filename.
@@ -136,6 +187,144 @@ def _extract_metadata_from_filename(filename: str) -> tuple[str | None, str | No
 
 
 # --- Endpoints ---
+
+
+@app.post("/generate/test")
+async def generate_model_photo_test(
+    files: Annotated[list[UploadFile], File(description="Garment photo(s)")],
+    env: Annotated[str, Form()] = "street",
+    garment_number: Annotated[str | None, Form()] = None,
+    garment_type: Annotated[str | None, Form()] = None,
+    position: Annotated[str | None, Form()] = None,
+    feedback: Annotated[str | None, Form()] = None,
+    piece1_type: Annotated[str | None, Form()] = None,
+    piece2_type: Annotated[str | None, Form()] = None,
+    piece3_type: Annotated[str | None, Form()] = None,
+    settings: Settings = Depends(get_settings),
+):
+    """
+    TEST ENDPOINT - No OAuth required for local testing.
+
+    This endpoint is identical to /generate but without OAuth authentication.
+    Use this for local development and testing with curl.
+
+    ⚠️ WARNING: This endpoint is DISABLED in production by default!
+    Set ENABLE_TEST_ENDPOINT=true in .env to enable locally.
+    """
+    # Security check: only allow in development
+    if not settings.enable_test_endpoint:
+        raise HTTPException(
+            status_code=404,
+            detail="Test endpoint is disabled. Set ENABLE_TEST_ENDPOINT=true in .env to enable.",
+        )
+
+    logger.info("[TEST MODE] Request without OAuth verification")
+    logger.info(
+        f"Received request: env={env}, garment_number={garment_number}, garment_type={garment_type}, position={position}, feedback={feedback}, files={len(files)}"
+    )
+
+    # Validate we have at least one file
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="At least one file is required")
+
+    # Extract garment_number and garment_type from first filename if not provided
+    if not garment_number or not garment_type:
+        extracted_number, extracted_type = _extract_metadata_from_filename(
+            files[0].filename
+        )
+        garment_number = garment_number or extracted_number
+        garment_type = garment_type or extracted_type
+
+    # Validate that we have both number and type
+    if not garment_number or not garment_type:
+        raise HTTPException(
+            status_code=400,
+            detail="garment_number and garment_type are required. Either provide them explicitly or use a filename with format: <number>_<type>_<rest>.ext (e.g., 42_pantalon_20251229.HEIC)",
+        )
+
+    job_id = str(uuid.uuid4())
+    temp_paths = []
+
+    try:
+        # Process all uploaded files
+        for idx, file in enumerate(files):
+            if not file.filename:
+                raise HTTPException(
+                    status_code=400, detail=f"Filename is required for file {idx}"
+                )
+
+            file_ext = os.path.splitext(file.filename)[1].lower()
+            if file_ext not in [".png", ".jpg", ".jpeg", ".heic", ".heif"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported file type: {file_ext}. Use PNG, JPG, JPEG, HEIC, or HEIF.",
+                )
+
+            temp_path = os.path.join(
+                settings.temp_upload_dir, f"{job_id}_{idx}{file_ext}"
+            )
+
+            # Save upload to temp
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            # Preprocess image: validate, convert to JPEG, resize to 1536px
+            # This handles HEIC, PNG, and all other formats uniformly
+            try:
+                processed_path = _preprocess_image(temp_path, settings)
+                temp_paths.append(processed_path)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Failed to process image {file.filename}: {str(e)}",
+                )
+
+        # For conjunto, prepare metadata
+        conjunto_pieces = None
+        if garment_type == "Conjunto":
+            conjunto_pieces = {
+                "piece1_type": piece1_type,
+                "piece2_type": piece2_type,
+                "piece3_type": piece3_type,
+            }
+
+        # Generate using Engine
+        # If single file, pass as string; if multiple, pass as list
+        input_paths = temp_paths[0] if len(temp_paths) == 1 else temp_paths
+
+        result_path_or_url = engine.generate_lifestyle_photo(
+            input_paths,
+            environment=env,
+            activity="posing for a lifestyle catalog",
+            garment_number=garment_number,
+            garment_type=garment_type,
+            position=position,
+            conjunto_pieces=conjunto_pieces,
+            feedback=feedback,
+        )
+
+        # Always return file (GCS disabled - using Drive for permanent storage)
+        if not os.path.exists(result_path_or_url):
+            raise HTTPException(
+                status_code=500, detail="Generated image file not found"
+            )
+
+        return FileResponse(
+            path=result_path_or_url,
+            media_type="image/png",
+            filename=f"cabide_{job_id}.png",
+        )
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        logger.error(f"Generation failed for job {job_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Engine Error: {str(e)}")
+    finally:
+        # Clean up all temp files
+        for temp_path in temp_paths:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 
 @app.post("/generate")
@@ -217,43 +406,16 @@ async def generate_model_photo(
             with open(temp_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
 
-            # Convert HEIC to PNG if needed
-            if file_ext in [".heic", ".heif"]:
-                try:
-                    from PIL import Image
-                    from pillow_heif import register_heif_opener
-
-                    register_heif_opener()
-                    img = Image.open(temp_path)
-
-                    # Convert to PNG for processing
-                    png_path = os.path.join(
-                        settings.temp_upload_dir, f"{job_id}_{idx}.png"
-                    )
-                    img.save(png_path, format="PNG")
-
-                    # Remove original HEIC file and use PNG
-                    os.remove(temp_path)
-                    temp_path = png_path
-                except Exception as e:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Failed to convert HEIC image: {str(e)}",
-                    )
-
-            # Validate file is a real image
+            # Preprocess image: validate, convert to JPEG, resize to 1536px
+            # This handles HEIC, PNG, and all other formats uniformly
             try:
-                from PIL import Image
-
-                with Image.open(temp_path) as img:
-                    img.verify()  # Verify it's a valid image
-                # Note: verify() invalidates the image, so we don't keep it open
+                processed_path = _preprocess_image(temp_path, settings)
+                temp_paths.append(processed_path)
             except Exception as e:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid image file: {str(e)}"
+                    status_code=400,
+                    detail=f"Failed to process image {file.filename}: {str(e)}",
                 )
-
-            temp_paths.append(temp_path)
 
         # For conjunto, prepare metadata
         conjunto_pieces = None
@@ -311,11 +473,11 @@ async def health_check(settings: Settings = Depends(get_settings)):
     """
     checks = {"gemini": False, "storage": True}
 
-    # Check Gemini API
+    # Check Gemini API (new SDK)
     try:
-        genai.configure(api_key=settings.gemini_api_key)
+        client = genai.Client(api_key=settings.gemini_api_key)
         # Quick test - just check if we can list models
-        list(genai.list_models())
+        client.models.list()
         checks["gemini"] = True
     except Exception as e:
         logger.warning(f"Gemini health check failed: {e}")

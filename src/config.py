@@ -68,9 +68,16 @@ class Settings(BaseSettings):
 
     # API Configuration
     backend_url: Optional[str] = Field(default=None, validation_alias="BACKEND_URL")
+    enable_test_endpoint: bool = Field(
+        default=False, validation_alias="ENABLE_TEST_ENDPOINT"
+    )  # Only enable for local dev
+
+    # Image Processing Configuration (Gemini 3 Optimization)
+    max_image_dimension: int = Field(default=1536)  # MEDIUM resolution for Gemini
+    image_quality: int = Field(default=90)  # JPEG quality for compressed uploads
 
     # Version
-    version: str = "1.1.0"
+    version: str = "1.2.0"
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore", case_sensitive=False
