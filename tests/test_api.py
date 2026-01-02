@@ -19,14 +19,17 @@ def client():
 
 def test_health_endpoint_returns_200(client, test_env_vars):
     """Test health check endpoint returns 200."""
-    with patch("src.api.genai.configure"):
-        with patch("src.api.genai.list_models", return_value=[]):
-            response = client.get("/health")
+    # Mock the new SDK's Client class and models.list() method
+    with patch("src.api.genai.Client") as mock_client_class:
+        mock_client = mock_client_class.return_value
+        mock_client.models.list.return_value = []
 
-            assert response.status_code == 200
-            data = response.json()
-            assert "status" in data
-            assert data["model"] == "gemini-3-pro-image-preview"
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "status" in data
+        assert data["model"] == "gemini-3-pro-image-preview"
 
 
 @pytest.mark.skip(reason="OAuth authentication blocks endpoint - needs mock refactor")

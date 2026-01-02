@@ -12,7 +12,7 @@ def test_settings_defaults(test_env_vars):
     settings = Settings()
     assert settings.gemini_api_key == "test_api_key_12345"
     assert settings.storage_mode == "local"
-    assert settings.version == "1.1.0"
+    assert settings.version == "1.2.0"
 
 
 def test_settings_validation_storage_mode(test_env_vars, monkeypatch):
