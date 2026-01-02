@@ -6,16 +6,18 @@
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-AI-powered professional fashion catalog generator using Google Gemini 3 Pro Vision. Upload clothing photos and generate professional model images with customizable environments and poses.
+AI-powered professional fashion catalog generator using Google Gemini 3 Pro Image Preview. Upload clothing photos and generate professional model images with customizable environments and poses.
 
 ## ✨ Features
 
-- **AI-Powered Image Generation**: Uses Google Gemini 3 Pro Vision to generate professional model photos
+- **AI-Powered Image Generation**: Uses Google Gemini 3 Pro Image Preview (`gemini-3-pro-image-preview`) with optimized image processing
+- **Cost-Optimized**: Automatic image preprocessing (1536px MEDIUM, JPEG 90%) reduces API costs by ~60%
 - **Flexible Environments**: Street, park, beach, forest, office, congress hall, medical office, luxury hotel
 - **Customizable Poses**: Walking, checking phone, holding coffee, smiling, presenting, attending clients
 - **OAuth Authentication**: Secure Google OAuth 2.0 integration
 - **Google Drive Backup**: Automatic upload of generated images to Google Drive
 - **Cloud-Native**: Backend on Cloud Run (São Paulo), Frontend on Streamlit Cloud
+- **Local Testing**: Development endpoint `/generate/test` for testing without OAuth
 
 ## 🚀 Quick Start
 
@@ -52,7 +54,12 @@ cp .env.example .env
 # Minimum required:
 GEMINI_API_KEY=your_api_key_here
 STORAGE_MODE=local
-GDRIVE_FOLDER_ID=your_folder_id_here  # Optional
+
+# Optional (for Google Drive integration):
+GDRIVE_FOLDER_ID=your_folder_id_here
+
+# Optional (for local testing without OAuth):
+ENABLE_TEST_ENDPOINT=true
 ```
 
 See [Environment Variables Guide](#-environment-variables) for detailed configuration.
@@ -105,6 +112,25 @@ docker-compose up --build
 # - Backend API: http://localhost:8000
 # - API Docs: http://localhost:8000/docs
 ```
+
+### Local Testing Without OAuth
+
+For quick local testing without OAuth authentication, use the `/generate/test` endpoint:
+
+```bash
+# Enable test endpoint in .env
+echo "ENABLE_TEST_ENDPOINT=true" >> .env
+
+# Test with curl
+curl -X POST "http://localhost:8000/generate/test" \
+  -F "files=@path/to/image.jpg" \
+  -F "env=beach" \
+  -F "garment_number=1" \
+  -F "garment_type=camisa" \
+  -o output.png
+```
+
+**⚠️ Security Note**: The `/generate/test` endpoint is **disabled by default** in production. It should only be enabled for local development.
 
 ## 📦 Production Deployment
 
@@ -196,6 +222,7 @@ https://your-app-name.streamlit.app
 | `GCP_SERVICE_ACCOUNT_JSON` | No | Service account JSON (or use file) | `{"type":"service_account",...}` |
 | `GDRIVE_USER_EMAIL` | No | Email for domain-wide delegation | `user@example.com` |
 | `BACKEND_URL` | No | Backend API URL (for production) | `https://api.run.app` |
+| `ENABLE_TEST_ENDPOINT` | No | Enable `/generate/test` endpoint (dev only) | `true` |
 
 **Note**: Instead of `GCP_SERVICE_ACCOUNT_JSON`, you can save credentials to `gcp-service-account.json` file (auto-detected).
 
@@ -390,9 +417,10 @@ cabide-ai/
 
 ### Technology Stack
 
-- **Backend**: FastAPI, Pydantic v2, Google Gemini SDK
+- **Backend**: FastAPI, Pydantic v2, google-genai SDK v1.55.0
 - **Frontend**: Streamlit, OAuth 2.0
-- **AI**: Google Gemini 3 Pro Vision (gemini-1.5-pro)
+- **AI**: Google Gemini 3 Pro Image Preview (`gemini-3-pro-image-preview`)
+- **Image Processing**: PIL/Pillow with HEIC support, automatic optimization (1536px MEDIUM, JPEG 90%)
 - **Storage**: Local filesystem + Google Drive backup
 - **Infrastructure**: Cloud Run (São Paulo), Streamlit Cloud
 - **CI/CD**: GitHub Actions, Docker, Artifact Registry
@@ -410,6 +438,7 @@ cabide-ai/
 - `/oauth/callback`: Public (required for OAuth flow)
 - `/health`: Public (no sensitive data)
 - `/generate`: Protected (requires valid Bearer token)
+- `/generate/test`: Disabled in production (enabled only with `ENABLE_TEST_ENDPOINT=true`)
 
 ### Best Practices
 
@@ -430,9 +459,11 @@ cabide-ai/
 |---------|------|----------------|
 | Streamlit Cloud | Free | $0 |
 | Cloud Run | Pay-per-use | $5-10/month |
-| Gemini API | Pay-per-use | $5-10/month |
+| Gemini API | Pay-per-use | $3-6/month* |
 | Artifact Registry | Storage | < $1/month |
-| **Total** | | **$10-20/month** |
+| **Total** | | **$8-17/month** |
+
+*After v1.2.0 image optimization: ~60% reduction in Gemini API costs through automatic image preprocessing (1536px MEDIUM resolution, JPEG quality 90%).
 
 ## 📝 Additional Documentation
 
@@ -477,20 +508,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### Common Issues
 
 **OAuth Authentication Problems:**
-- Ensure `client_secret.json` is in project root (or `CLIENT_SECRET_JSON` in Streamlit secrets)
-- Verify redirect URIs match exactly in Google Cloud Console
-- Check that test users are added in OAuth Consent Screen
-- Confirm scopes include: `drive.file`, `userinfo.email`, `userinfo.profile`
+- See detailed setup in [OAuth Setup section](#3-set-up-oauth-required-for-google-drive)
+- For local testing without OAuth, use `/generate/test` endpoint (see [Local Testing section](#local-testing-without-oauth))
 
 **Deployment Issues:**
 - Verify all GitHub Secrets are configured: `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT`, `GEMINI_API_KEY`
-- Check Cloud Run logs for errors: `gcloud run logs read cabide-api --region=southamerica-east1`
-- Ensure backend has public access for OAuth callback: `gcloud run services add-iam-policy-binding cabide-api --region=southamerica-east1 --member="allUsers" --role="roles/run.invoker"`
+- Check Cloud Run logs: `gcloud run logs read cabide-api --region=southamerica-east1`
 
 **Local Development:**
-- Make sure `.env` file exists with required variables
-- Verify `gcp-service-account.json` is present for Google Drive integration
-- Check that all dependencies are installed: `uv sync`
+- Ensure `.env` file exists with `GEMINI_API_KEY` and `ENABLE_TEST_ENDPOINT=true`
+- Install dependencies: `uv sync`
 
 ### Getting Help
 
