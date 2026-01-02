@@ -5,7 +5,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Union
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from PIL import Image
 
 # Register HEIC support for PIL
@@ -46,13 +47,14 @@ TYPE_NORMALIZATION = {
 class FashionEngine:
     def __init__(self, settings: Settings = None):
         self.settings = settings or get_settings()
-        genai.configure(api_key=self.settings.gemini_api_key)
-        self.model = genai.GenerativeModel("gemini-3-pro-image-preview")
+        # Initialize new SDK client
+        self.client = genai.Client(api_key=self.settings.gemini_api_key)
+        self.model_name = "gemini-3-pro-image-preview"
 
         # Always use local storage (GCS disabled - using Drive for permanent storage)
         self.settings.output_dir.mkdir(parents=True, exist_ok=True)
         logger.info(
-            f"FashionEngine initialized - output_dir={self.settings.output_dir}"
+            f"FashionEngine initialized - model={self.model_name}, output_dir={self.settings.output_dir}"
         )
 
     def _normalize_garment_type(self, garment_type: Optional[str]) -> str:
@@ -226,8 +228,16 @@ class FashionEngine:
                 feedback_instruction = f"\n\nUSER FEEDBACK FOR IMPROVEMENT: {feedback}\nPlease incorporate this feedback while maintaining all other quality requirements and garment fidelity."
             final_prompt = final_prompt + feedback_instruction
 
-        # Multimodal call
-        content_parts = [final_prompt] + garment_images
+        # Prepare content for new SDK
+        # Convert PIL images to bytes for the new API
+        content_parts = [final_prompt]
+        for img in garment_images:
+            img_buffer = BytesIO()
+            img.save(img_buffer, format="JPEG", quality=self.settings.image_quality)
+            img_bytes = img_buffer.getvalue()
+            content_parts.append(
+                types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
+            )
 
         try:
             logger.info(
@@ -240,7 +250,9 @@ class FashionEngine:
                 },
             )
 
-            response = self.model.generate_content(content_parts)
+            response = self.client.models.generate_content(
+                model=self.model_name, contents=content_parts
+            )
 
             # Validate response
             if not response.candidates:
@@ -254,13 +266,10 @@ class FashionEngine:
             candidate = response.candidates[0]
             logger.debug(f"Gemini response finish_reason: {candidate.finish_reason}")
 
-            # Check if response has image attribute (old format)
-            if hasattr(candidate, "image") and candidate.image is not None:
-                logger.info("Image received via legacy image attribute")
-                generated_pil = candidate.image
-            # Check if response has parts with inline_data (new format)
-            elif hasattr(candidate.content, "parts") and candidate.content.parts:
-                # Extract image data from the response
+            # Extract image from new SDK response format
+            # The new SDK returns parts with inline_data
+            generated_pil = None
+            if hasattr(candidate.content, "parts") and candidate.content.parts:
                 import base64
 
                 for part in candidate.content.parts:
@@ -268,7 +277,7 @@ class FashionEngine:
                         mime_type = getattr(part.inline_data, "mime_type", "unknown")
                         logger.debug(f"Found inline_data with mime_type: {mime_type}")
 
-                        # The data is already in bytes format in the google.generativeai library
+                        # The data is in bytes format in the new SDK
                         if isinstance(part.inline_data.data, bytes):
                             image_data = part.inline_data.data
                         elif isinstance(part.inline_data.data, str):
@@ -291,15 +300,9 @@ class FashionEngine:
                             f"Image decoded successfully: {generated_pil.format} {generated_pil.size}"
                         )
                         break
-                else:
-                    logger.error(f"Gemini response missing image data: {response}")
-                    raise ValueError(
-                        "Gemini did not return an image. This may be due to safety filters "
-                        "or content policy violations."
-                    )
-            else:
-                # Log the full response for debugging
-                logger.error(f"Gemini response missing image: {response}")
+
+            if generated_pil is None:
+                logger.error(f"Gemini response missing image data: {response}")
                 raise ValueError(
                     "Gemini did not return an image. This may be due to safety filters "
                     "or content policy violations."
